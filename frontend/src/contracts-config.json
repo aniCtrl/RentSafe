@@ -1,0 +1,16 @@
+{
+  "testnet": {
+    "escrow": "CDDJ6HY5DJWMZCNC6BYHGUIG6Z4YKS3FJF56BGU66VXMHCMXQGUJFI36",
+    "dispute": "CAMZCYQF4DTCGIU3X637ZHDIUEWZBZGY7LNKJUPDCWUBIFS777KNKAZC",
+    "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+    "rpcUrl": "https://soroban-testnet.stellar.org",
+    "networkPassphrase": "Test Stellar Public Network ; September 2015"
+  },
+  "local": {
+    "escrow": "",
+    "dispute": "",
+    "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+    "rpcUrl": "http://localhost:8000",
+    "networkPassphrase": "Standalone Network ; Map 2020"
+  }
+}
