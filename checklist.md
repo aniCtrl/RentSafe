@@ -14,7 +14,7 @@ Host the React/Next.js frontend to make the application accessible:
    - `NEXT_PUBLIC_TOKEN_SAC` = `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
    - `NEXT_PUBLIC_SOROBAN_RPC_URL` = `https://soroban-testnet.stellar.org`
    - `NEXT_PUBLIC_NETWORK_PASSPHRASE` = `Test Stellar Public Network ; September 2015`
-4. **Deploy**: Trigger the deploy pipeline. Copy the resulting **Live Link** (e.g. `https://rentsafe.vercel.app`) and replace the `[LIVE_DEMO_LINK]` placeholder at the very top of `README.md`.
+4. **Deploy**: Trigger the deploy pipeline. The Live Link has already been set to `https://rent-safe-kappa.vercel.app` in `README.md`.
 
 ---
 

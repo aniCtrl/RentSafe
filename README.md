@@ -3,7 +3,7 @@
 
 <div align="center">
 
-**[Live Demo]([LIVE_DEMO_LINK])** &nbsp;|&nbsp; **[Demo Video]([DEMO_VIDEO_LINK])** &nbsp;|&nbsp; **[Stellar Explorer](https://stellar.expert/explorer/testnet)**
+**[Live Demo](https://rent-safe-kappa.vercel.app)** &nbsp;|&nbsp; **[Demo Video]([DEMO_VIDEO_LINK])** &nbsp;|&nbsp; **[Stellar Explorer](https://stellar.expert/explorer/testnet)**
 
 ![CI](https://github.com/[GITHUB_USERNAME]/[REPO_NAME]/actions/workflows/ci.yml/badge.svg)
 ![Stellar](https://img.shields.io/badge/Stellar-Testnet-blue)
