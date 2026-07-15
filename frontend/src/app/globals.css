@@ -1,26 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f6f6;
+  --foreground: #0f171b;
+  --card-bg: #ffffff;
+  --card-dark: #0f1717;
+  --primary-green: #1b8b3a;
+  --primary-green-hover: #156c2d;
+  --font-sans: 'Outfit', sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-card-bg: var(--card-bg);
+  --color-card-dark: var(--card-dark);
+  --color-primary-green: var(--primary-green);
+  --color-primary-green-hover: var(--primary-green-hover);
+  --font-sans: var(--font-sans);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* Base custom utility classes for the FINAI dashboard cards and elements */
+.finai-card {
+  background-color: var(--card-bg);
+  border-radius: 1rem;
+  border: 1px solid #eef2f2;
+}
+
+.finai-card-dark {
+  background-color: var(--card-dark);
+  color: #ffffff;
+  border-radius: 1rem;
+}
+
+/* Custom scrollbars to keep sidebar clean */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

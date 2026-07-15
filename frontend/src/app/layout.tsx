@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "RentSafe | Decentralized Rental Security Escrow Platform",
   description: "Secure your rental security deposit with programmable, trustless Soroban escrow smart contracts on the Stellar blockchain.",
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({

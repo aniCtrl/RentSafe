@@ -6,7 +6,7 @@ import LandingPage from '../app/page';
 describe('LandingPage Component', () => {
   test('renders header and CTA button', () => {
     render(<LandingPage />);
-    expect(screen.getByText('Programmable Escrow for Security Deposits')).toBeInTheDocument();
-    expect(screen.getByText('Enter Escrow Panel')).toBeInTheDocument();
+    expect(screen.getByText('RENTSAFE.')).toBeInTheDocument();
+    expect(screen.getByText('Launch Dashboard')).toBeInTheDocument();
   });
 });

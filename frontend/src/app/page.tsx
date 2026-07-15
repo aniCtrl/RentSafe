@@ -5,168 +5,259 @@ import Link from 'next/link';
 import { 
   ShieldCheck, 
   Key, 
-  ArrowRight, 
   Lock, 
-  UserCheck, 
-  TrendingUp, 
-  FileText, 
-  Scale 
+  Scale, 
+  Globe, 
+  Layers,
+  ArrowRight,
+  Home,
+  CheckCircle,
+  FileText,
+  UserCheck
 } from 'lucide-react';
 
 export default function LandingPage() {
   const steps = [
     {
       icon: FileText,
-      title: "1. Create Agreement",
-      description: "Landlord specifies the tenant's wallet address, the deposit amount in XLM, and initiates the agreement."
+      stepNum: "01",
+      title: "Create Agreement",
+      description: "Landlord specifies the tenant's wallet address, lease terms, and the required deposit in XLM."
     },
     {
       icon: Lock,
-      title: "2. Lock Deposit",
-      description: "Tenant logs in, approves the terms, and securely deposits the funds directly into the Soroban smart contract."
+      stepNum: "02",
+      title: "Lock Deposit",
+      description: "Tenant logs in, approves the terms, and securely deposits the funds directly into the Soroban escrow contract."
     },
     {
       icon: ShieldCheck,
-      title: "3. Neutral Protection",
-      description: "Funds remain locked in the neutral blockchain contract, earning no-one interest and immune to premature withdrawals."
-    },
-    {
-      icon: Scale,
-      title: "4. Settle or Dispute",
-      description: "At lease end, approve landlord's deduction or activate inter-contract dispute resolution for neutral arbitration."
+      stepNum: "03",
+      title: "Settle or Dispute",
+      description: "At lease end, release the deposit back to the tenant, approve deductions, or trigger the dispute callback."
     }
   ];
 
   const features = [
     {
-      icon: UserCheck,
-      title: "Role-Based Dashboards",
-      description: "Tailored dashboards for both Tenants and Landlords to track claims and initiate actions."
+      icon: ShieldCheck,
+      title: "Neutral Escrows",
+      description: "Security deposits are held securely on-chain, not by the landlord, eliminating direct capital access conflict."
     },
     {
       icon: Key,
-      title: "Self-Custodial Wallets",
-      description: "Integrated with Stellar Wallets Kit. Connect Freighter, xBull, or Hana seamlessly."
+      title: "Self-Custodial Control",
+      description: "Connect standard Stellar wallets (Freighter, xBull, Hana) to directly sign escrow state updates."
     },
     {
-      icon: ShieldCheck,
-      title: "Soroban Smart Contracts",
-      description: "Leverages custom persistent storage, contract-to-contract callbacks, and automated state transitions."
+      icon: Scale,
+      title: "Automated Arbitration",
+      description: "Disputes are automatically routed via inter-contract C2C calls to registry code for neutral resolution."
+    }
+  ];
+
+  const mockListings = [
+    {
+      title: "El Nido Penthouse",
+      location: "Palawan Region",
+      depositUsd: "1,200",
+      depositXlm: "5,000",
+      rating: "4.8",
+      imgUrl: "https://placehold.co/400x300/0f172a/ffffff?text=El+Nido+Penthouse"
+    },
+    {
+      title: "Siargao Beach House",
+      location: "Surigao del Norte",
+      depositUsd: "850",
+      depositXlm: "3,500",
+      rating: "4.9",
+      imgUrl: "https://placehold.co/400x300/0f172a/ffffff?text=Siargao+Beach+House"
+    },
+    {
+      title: "Vigan Heritage Villa",
+      location: "Ilocos Region",
+      depositUsd: "950",
+      depositXlm: "4,000",
+      rating: "4.7",
+      imgUrl: "https://placehold.co/400x300/0f172a/ffffff?text=Vigan+Heritage+Villa"
+    },
+    {
+      title: "Baguio Forest Cabin",
+      location: "Benguet Region",
+      depositUsd: "700",
+      depositXlm: "3,000",
+      rating: "4.6",
+      imgUrl: "https://placehold.co/400x300/0f172a/ffffff?text=Baguio+Forest+Cabin"
     }
   ];
 
   return (
-    <div className="space-y-24 py-8">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800/80 px-8 py-16 text-center lg:py-24">
-        {/* Glow effect */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
+    <div className="space-y-24 pb-24 bg-white text-[#0f171b]">
+      {/* 1. Hero Banner Section (WANDER style) */}
+      <section className="px-6 lg:px-16 pt-6">
+        <div className="relative rounded-3xl overflow-hidden h-[550px] bg-slate-900 flex items-center">
+          {/* Background image overlay */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center opacity-65"
+            style={{ backgroundImage: "url('/hero-banner.png')" }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/70 to-transparent" />
 
-        <div className="max-w-3xl mx-auto space-y-6 relative z-10">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Soroban Orange Belt (Level 3) Certified
-          </span>
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-white via-indigo-100 to-indigo-400 bg-clip-text text-transparent">
-            Programmable Escrow for Security Deposits
-          </h1>
-
-          <p className="text-slate-400 text-lg leading-relaxed max-w-2xl mx-auto">
-            Ditch traditional trust-based renting. RentSafe locks security deposits in neutral, decentralized smart contracts, protecting both tenants and landlords.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link
-              href="/dashboard"
-              className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3.5 px-6 rounded-xl flex items-center gap-2 group shadow-lg shadow-indigo-600/10 hover:scale-[1.02] active:scale-95 transition-all duration-300 w-full sm:w-auto justify-center"
-            >
-              Enter Escrow Panel
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <a
-              href="#how-it-works"
-              className="bg-slate-800 hover:bg-slate-700/80 border border-slate-750 text-slate-200 font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 w-full sm:w-auto hover:text-white"
-            >
-              How It Works
-            </a>
+          {/* Overlaid Hero Content */}
+          <div className="relative z-10 max-w-2xl ml-8 md:ml-16 space-y-6 text-white">
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight font-sans">
+              RENTSAFE.
+            </h1>
+            <p className="text-lg md:text-xl font-medium text-slate-200 leading-relaxed">
+              Lock your rental security deposit in a neutral, programmable smart contract. Complete tenant and landlord protection with zero middlemen.
+            </p>
+            <div className="flex flex-wrap gap-4 pt-2">
+              <Link 
+                href="/dashboard"
+                className="bg-[#1b8b3a] hover:bg-[#156c2d] text-white text-xs font-semibold py-3 px-6 rounded-full transition-colors"
+              >
+                Launch Dashboard
+              </Link>
+              <a 
+                href="#listings"
+                className="bg-white/20 hover:bg-white/30 text-white border border-white/35 text-xs font-semibold py-3 px-6 rounded-full transition-colors"
+              >
+                Explore Active Escrows
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div className="bg-slate-900/40 border border-slate-850/60 p-6 rounded-2xl flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 shrink-0">
-            <Lock className="h-6 w-6" />
-          </div>
-          <div>
-            <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider block">Total Locked Volume (TVL)</span>
-            <span className="text-2xl font-extrabold text-white mt-1 block">42,500 XLM</span>
-          </div>
-        </div>
-        <div className="bg-slate-900/40 border border-slate-850/60 p-6 rounded-2xl flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400 shrink-0">
-            <FileText className="h-6 w-6" />
-          </div>
-          <div>
-            <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider block">Active Agreements</span>
-            <span className="text-2xl font-extrabold text-white mt-1 block">154 Contracts</span>
-          </div>
-        </div>
-        <div className="bg-slate-900/40 border border-slate-850/60 p-6 rounded-2xl flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-400 shrink-0">
-            <TrendingUp className="h-6 w-6" />
-          </div>
-          <div>
-            <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider block">Escrows Released</span>
-            <span className="text-2xl font-extrabold text-white mt-1 block">349 settled</span>
-          </div>
-        </div>
-      </section>
-
-      {/* How it Works Step-by-Step */}
-      <section id="how-it-works" className="space-y-12">
-        <div className="text-center space-y-4">
-          <h2 className="text-3xl font-bold text-white tracking-tight">Standard Lease Lifecycle</h2>
-          <p className="text-slate-400 max-w-xl mx-auto text-sm leading-relaxed">
-            RentSafe handles security deposits completely on-chain, from initialization to disbursement or dispute settlement.
+      {/* 2. Features Double Column (WANDER style) */}
+      <section id="features" className="max-w-7xl mx-auto px-6 lg:px-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="space-y-6">
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            Why Thousands of Users Choose RentSafe for Rental Security Escrows
+          </h2>
+          <p className="text-slate-500 text-sm leading-relaxed">
+            By shifting security deposits from landlord bank accounts directly into autonomous Soroban smart contracts, RentSafe establishes trust. Landlords get verified proof of funds, and tenants are protected against arbitrary capital retention.
           </p>
+          
+          {/* Stats Counters (WANDER style) */}
+          <div className="grid grid-cols-3 gap-6 pt-6 border-t border-slate-100">
+            <div>
+              <span className="text-2xl font-bold text-slate-900 block">10k+</span>
+              <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mt-1">Secured Tenants</span>
+            </div>
+            <div>
+              <span className="text-2xl font-bold text-slate-900 block">5yrs</span>
+              <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mt-1">Core Experience</span>
+            </div>
+            <div>
+              <span className="text-2xl font-bold text-slate-900 block">50+</span>
+              <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block mt-1">Contracts Linked</span>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {steps.map((step, idx) => {
-            const Icon = step.icon;
+        {/* Right Feature Column Cards */}
+        <div className="space-y-4">
+          {features.map((feature, idx) => {
+            const Icon = feature.icon;
             return (
               <div 
-                key={idx} 
-                className="bg-slate-900/60 border border-slate-850 p-6 rounded-2xl space-y-4 hover:border-slate-700/80 transition-colors duration-300"
+                key={idx}
+                className="bg-[#f4f6f6] border border-slate-200/50 p-6 rounded-2xl flex gap-4 items-start"
               >
-                <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                <div className="p-2.5 bg-white border border-slate-200/60 rounded-xl text-[#1b8b3a] shrink-0">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="font-bold text-white text-base">{step.title}</h3>
-                <p className="text-slate-400 text-xs leading-relaxed">{step.description}</p>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-slate-900">{feature.title}</h4>
+                  <p className="text-slate-500 text-xs leading-relaxed">{feature.description}</p>
+                </div>
               </div>
             );
           })}
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section className="bg-slate-900/40 border border-slate-850 rounded-3xl p-8 lg:p-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {features.map((feature, idx) => {
-          const Icon = feature.icon;
-          return (
-            <div key={idx} className="space-y-4">
-              <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
-                <Icon className="h-5 w-5" />
-              </div>
-              <h3 className="font-bold text-white text-base">{feature.title}</h3>
-              <p className="text-slate-400 text-xs leading-relaxed">{feature.description}</p>
+      {/* 3. Listings Grid Section (WANDER style) */}
+      <section id="listings" className="bg-[#f4f6f6] py-16 px-6 lg:px-16">
+        <div className="max-w-7xl mx-auto space-y-10">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-extrabold text-[#0f171b] tracking-tight">Active Escrows & Listings</h2>
+              <p className="text-xs text-slate-500 mt-1">Review active, mock properties with transparent locked on-chain escrows</p>
             </div>
-          );
-        })}
+            <Link 
+              href="/dashboard"
+              className="text-xs font-bold text-[#1b8b3a] hover:text-[#156c2d] flex items-center gap-1.5 transition-colors"
+            >
+              Launch Platform Dashboard <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+
+          {/* Grid Layout of Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {mockListings.map((listing, idx) => (
+              <div 
+                key={idx}
+                className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden flex flex-col justify-between"
+              >
+                <div 
+                  className="h-44 w-full bg-slate-100 bg-cover bg-center"
+                  style={{ backgroundImage: `url(${listing.imgUrl})` }}
+                />
+                <div className="p-5 space-y-4">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">{listing.location}</span>
+                    <h3 className="text-sm font-bold text-[#0f171b] mt-1">{listing.title}</h3>
+                  </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-semibold uppercase">Security Deposit</span>
+                      <span className="text-xs font-bold text-[#0f171b] mt-0.5 block">
+                        ${listing.depositUsd} <span className="text-[10px] text-[#1b8b3a]">({listing.depositXlm} XLM)</span>
+                      </span>
+                    </div>
+                    <span className="bg-[#eef2f2] text-[#1b8b3a] text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-200">
+                      ★ {listing.rating}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Stepper Process (WANDER style) */}
+      <section id="how-it-works" className="max-w-7xl mx-auto px-6 lg:px-16 space-y-12">
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Security Deposit Made Easy as 1-2-3</h2>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">Get absolute protection in three simple, cryptographically-secure steps</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {steps.map((step, idx) => {
+            const Icon = step.icon;
+            return (
+              <div 
+                key={idx}
+                className="bg-white border border-slate-200/60 p-6 rounded-2xl space-y-4 relative"
+              >
+                {/* Step number badge */}
+                <div className="flex justify-between items-center">
+                  <div className="p-2.5 bg-[#f4f6f6] border border-slate-200/60 rounded-xl text-[#1b8b3a]">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className="text-lg font-bold text-slate-200">{step.stepNum}</span>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-slate-900">{step.title}</h4>
+                  <p className="text-slate-500 text-xs leading-relaxed">{step.description}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
     </div>
   );

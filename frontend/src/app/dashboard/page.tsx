@@ -9,17 +9,19 @@ import { useTransactionStore } from '../../state/useTransactionStore';
 import confetti from 'canvas-confetti';
 import { 
   Plus, 
-  ArrowDownCircle, 
-  ArrowUpRight, 
+  Lock, 
+  ArrowRight, 
   Scale, 
   ShieldAlert, 
-  FileCheck, 
   Clock, 
   User, 
-  DollarSign, 
   CheckCircle,
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  FileText,
+  Home,
+  MessageSquare
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -27,7 +29,11 @@ export default function Dashboard() {
   const { address, walletId, connected } = useWalletStore();
   const { addTransaction, updateStatus } = useTransactionStore();
 
-  const [activeTab, setActiveTab] = useState<'tenant' | 'landlord' | 'arbiter'>('tenant');
+  // Modal display states
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showLockModal, setShowLockModal] = useState(false);
+  const [showProposeModal, setShowProposeModal] = useState(false);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
 
   // Form states for creating agreement
   const [tenantAddr, setTenantAddr] = useState('');
@@ -41,6 +47,9 @@ export default function Dashboard() {
 
   // Arbiter resolution states (disputeId -> resolution amounts)
   const [resolutions, setResolutions] = useState<Record<number, { landlord: string; tenant: string }>>({});
+
+  // Toggle balance mask
+  const [hideBalance, setHideBalance] = useState(false);
 
   // ----------------------------------------------------
   // Queries
@@ -57,7 +66,7 @@ export default function Dashboard() {
           const item = await service.getAgreement(i);
           list.push(item);
         } catch (e) {
-          // ignore or log
+          // ignore
         }
       }
       return list;
@@ -86,570 +95,773 @@ export default function Dashboard() {
     refetchInterval: 10000,
   });
 
-  // Filter lists based on role
+  // Role Filtering
   const tenantAgreements = agreements.filter(a => a.tenant.toLowerCase() === address?.toLowerCase());
   const landlordAgreements = agreements.filter(a => a.landlord.toLowerCase() === address?.toLowerCase());
 
+  // Aggregate stats
+  const activeCount = agreements.filter(a => a.state === 1).length; // Active
+  const pendingCount = agreements.filter(a => a.state === 0).length; // PendingDeposit
+  const settledCount = agreements.filter(a => a.state === 3).length; // Settled
+  
+  // Calculate total locked balance in XLM for active agreements
+  const totalLockedXlm = agreements
+    .filter(a => a.state === 1 || a.state === 2)
+    .reduce((sum, a) => sum + a.amount, 0);
+  
+  // Assume a mock rate of 1 XLM = $0.10 for display conversion
+  const totalLockedUsd = totalLockedXlm * 0.10;
+
   // ----------------------------------------------------
-  // Actions
+  // Smart Contract Interaction Handlers
   // ----------------------------------------------------
 
   const handleCreateAgreement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!address || !walletId) return;
 
-    const amountNum = parseFloat(depositAmount);
-    if (!tenantAddr || isNaN(amountNum) || amountNum <= 0) return;
-
-    const retryAction = () => service.createAgreement(tenantAddr, address, amountNum, address, walletId);
-    const txId = addTransaction('Create Escrow Agreement', retryAction);
-
-    try {
-      updateStatus(txId, 'processing');
-      const hash = await retryAction();
-      updateStatus(txId, 'confirmed', hash);
-      setTenantAddr('');
-      setDepositAmount('');
-      refetchAgreements();
-      confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 } });
-    } catch (err: any) {
-      updateStatus(txId, 'failed', null, err.message || 'Agreement creation failed');
-    }
-  };
-
-  const handleDeposit = async (agreementId: number) => {
-    if (!address || !walletId) return;
-
-    const retryAction = () => service.depositEscrow(agreementId, address, walletId);
-    const txId = addTransaction('Deposit Security Funds', retryAction);
-
-    try {
-      updateStatus(txId, 'processing');
-      const hash = await retryAction();
-      updateStatus(txId, 'confirmed', hash);
-      refetchAgreements();
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.8 } });
-    } catch (err: any) {
-      updateStatus(txId, 'failed', null, err.message || 'Deposit lock failed');
-    }
-  };
-
-  const handleProposeDeduction = async (agreementId: number, totalAmount: number) => {
-    if (!address || !walletId) return;
-    const prop = proposals[agreementId];
-    if (!prop) return;
-
-    const landlordAmt = parseFloat(prop.landlord);
-    const tenantAmt = parseFloat(prop.tenant);
-    if (isNaN(landlordAmt) || isNaN(tenantAmt) || landlordAmt + tenantAmt !== totalAmount) {
-      alert(`Invalid inputs. Sum of claims must equal the total deposit amount (${totalAmount} XLM)`);
+    const amount = parseFloat(depositAmount);
+    if (!tenantAddr || isNaN(amount) || amount <= 0) {
+      alert("Please provide a valid tenant address and deposit amount.");
       return;
     }
 
-    const retryAction = () => service.proposeDeduction(agreementId, landlordAmt, tenantAmt, address, walletId);
-    const txId = addTransaction('Propose Deduction', retryAction);
+    const txId = addTransaction("Create Escrow Agreement");
+    setShowCreateModal(false);
 
     try {
-      updateStatus(txId, 'processing');
-      const hash = await retryAction();
-      updateStatus(txId, 'confirmed', hash);
+      updateStatus(txId, "processing");
+      const hash = await service.createAgreement(tenantAddr, address, amount, address, walletId);
+      updateStatus(txId, "confirmed", hash);
+      confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 } });
+      setTenantAddr('');
+      setDepositAmount('');
       refetchAgreements();
     } catch (err: any) {
-      updateStatus(txId, 'failed', null, err.message || 'Propose deduction failed');
+      updateStatus(txId, "failed", undefined, err.message || "Error submitting transaction");
+    }
+  };
+
+  const handleDeposit = async (agreementId: number, amount: number) => {
+    if (!address || !walletId) return;
+
+    const txId = addTransaction(`Lock Deposit (ID: ${agreementId})`, () => handleDeposit(agreementId, amount));
+    setShowLockModal(false);
+
+    try {
+      updateStatus(txId, "processing");
+      const hash = await service.depositEscrow(agreementId, address, walletId);
+      updateStatus(txId, "confirmed", hash);
+      confetti({ particleCount: 100, spread: 80 });
+      refetchAgreements();
+    } catch (err: any) {
+      updateStatus(txId, "failed", undefined, err.message || "Error submitting deposit");
+    }
+  };
+
+  const handleProposeDeduction = async (agreementId: number) => {
+    if (!address || !walletId) return;
+
+    const prop = proposals[agreementId];
+    if (!prop) return;
+
+    const landlordClaim = parseFloat(prop.landlord);
+    if (isNaN(landlordClaim) || landlordClaim < 0) {
+      alert("Invalid landlord claim amount");
+      return;
+    }
+
+    const agreement = agreements.find(a => a.id === agreementId);
+    if (!agreement) return;
+
+    const tenantSplit = Math.max(0, agreement.amount - landlordClaim);
+
+    const txId = addTransaction(`Propose Refund Split (ID: ${agreementId})`, () => handleProposeDeduction(agreementId));
+    setShowProposeModal(false);
+
+    try {
+      updateStatus(txId, "processing");
+      const hash = await service.proposeDeduction(agreementId, landlordClaim, tenantSplit, address, walletId);
+      updateStatus(txId, "confirmed", hash);
+      refetchAgreements();
+    } catch (err: any) {
+      updateStatus(txId, "failed", undefined, err.message || "Error proposing split");
     }
   };
 
   const handleApproveDeduction = async (agreementId: number) => {
     if (!address || !walletId) return;
 
-    const retryAction = () => service.approveDeduction(agreementId, address, walletId);
-    const txId = addTransaction('Approve Deposit Claim', retryAction);
-
+    const txId = addTransaction(`Approve Refund (ID: ${agreementId})`, () => handleApproveDeduction(agreementId));
     try {
-      updateStatus(txId, 'processing');
-      const hash = await retryAction();
-      updateStatus(txId, 'confirmed', hash);
+      updateStatus(txId, "processing");
+      const hash = await service.approveDeduction(agreementId, address, walletId);
+      updateStatus(txId, "confirmed", hash);
+      confetti({ particleCount: 120, colors: ['#22c55e', '#ffffff'] });
       refetchAgreements();
-      confetti({ particleCount: 120, spread: 80, origin: { y: 0.8 } });
     } catch (err: any) {
-      updateStatus(txId, 'failed', null, err.message || 'Approval execution failed');
+      updateStatus(txId, "failed", undefined, err.message || "Error approving refund");
     }
   };
 
   const handleRaiseDispute = async (agreementId: number) => {
     if (!address || !walletId) return;
-    const reason = disputeReasons[agreementId] || 'Unresolved refund dispute';
 
-    const retryAction = () => service.raiseDispute(agreementId, address, reason, address, walletId);
-    const txId = addTransaction('Escrow Claim Dispute', retryAction);
+    const reason = disputeReasons[agreementId] || "Generic dispute request";
+    const txId = addTransaction(`File Escrow Dispute (ID: ${agreementId})`, () => handleRaiseDispute(agreementId));
+    setShowDisputeModal(false);
 
     try {
-      updateStatus(txId, 'processing');
-      const hash = await retryAction();
-      updateStatus(txId, 'confirmed', hash);
+      updateStatus(txId, "processing");
+      const hash = await service.raiseDispute(agreementId, address, reason, address, walletId);
+      updateStatus(txId, "confirmed", hash);
       refetchAgreements();
       refetchDisputes();
     } catch (err: any) {
-      updateStatus(txId, 'failed', null, err.message || 'Dispute raising failed');
+      updateStatus(txId, "failed", undefined, err.message || "Error filing dispute");
     }
   };
 
-  const handleResolveDispute = async (disputeId: number, totalAmount: number) => {
+  const handleResolveDispute = async (disputeId: number) => {
     if (!address || !walletId) return;
+
     const res = resolutions[disputeId];
     if (!res) return;
 
-    const landlordAmt = parseFloat(res.landlord);
-    const tenantAmt = parseFloat(res.tenant);
-    if (isNaN(landlordAmt) || isNaN(tenantAmt) || landlordAmt + tenantAmt !== totalAmount) {
-      alert(`Invalid split. Sum must equal total dispute amount (${totalAmount} XLM)`);
+    const landlordSplit = parseFloat(res.landlord);
+    const tenantSplit = parseFloat(res.tenant);
+
+    if (isNaN(landlordSplit) || isNaN(tenantSplit) || landlordSplit < 0 || tenantSplit < 0) {
+      alert("Invalid split values");
       return;
     }
 
-    const retryAction = () => service.resolveDispute(disputeId, landlordAmt, tenantAmt, address, walletId);
-    const txId = addTransaction('Arbiter Claim Resolution', retryAction);
+    const txId = addTransaction(`Resolve Dispute (ID: ${disputeId})`, () => handleResolveDispute(disputeId));
+    setShowDisputeModal(false);
 
     try {
-      updateStatus(txId, 'processing');
-      const hash = await retryAction();
-      updateStatus(txId, 'confirmed', hash);
+      updateStatus(txId, "processing");
+      const hash = await service.resolveDispute(disputeId, landlordSplit, tenantSplit, address, walletId);
+      updateStatus(txId, "confirmed", hash);
       refetchAgreements();
       refetchDisputes();
-      confetti({ particleCount: 80, spread: 60, colors: ['#6366f1', '#10b981'] });
     } catch (err: any) {
-      updateStatus(txId, 'failed', null, err.message || 'Dispute resolution failed');
+      updateStatus(txId, "failed", undefined, err.message || "Error resolving dispute");
     }
   };
 
-  // State helper components
-  const getStateBadge = (state: number) => {
-    switch (state) {
-      case 0:
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20"><Clock className="h-3 w-3" /> Awaiting Deposit</span>;
-      case 1:
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-500/10 text-green-400 border border-green-500/20"><CheckCircle className="h-3 w-3" /> Active Escrow</span>;
-      case 2:
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"><HelpCircle className="h-3 w-3" /> Claim Proposed</span>;
-      case 3:
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20"><ShieldAlert className="h-3 w-3" /> Disputed</span>;
-      case 4:
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20"><FileCheck className="h-3 w-3" /> Settled</span>;
-      default:
-        return null;
+  // Convert status ID to readable text
+  const getStatusString = (status: number) => {
+    switch (status) {
+      case 0: return 'Pending Deposit';
+      case 1: return 'Active Lease';
+      case 2: return 'Refund Proposed';
+      case 3: return 'Settled';
+      case 4: return 'Disputed';
+      default: return 'Unknown';
     }
   };
-
-  if (!connected) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-        <ArrowDownCircle className="h-16 w-16 text-slate-700 animate-bounce" />
-        <h2 className="text-xl font-bold text-white">Wallet Connection Required</h2>
-        <p className="text-slate-400 max-w-sm text-sm">Please connect your Freighter, xBull, or Hana wallet from the sidebar options to view and manage active rental agreements.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">
-      {/* Tab Switcher */}
-      <div className="flex bg-slate-900/60 p-1.5 rounded-xl border border-slate-800 max-w-md">
-        <button
-          onClick={() => setActiveTab('tenant')}
-          className={`flex-1 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
-            activeTab === 'tenant' 
-              ? 'bg-indigo-600 text-white shadow-md' 
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Tenant Console
-        </button>
-        <button
-          onClick={() => setActiveTab('landlord')}
-          className={`flex-1 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
-            activeTab === 'landlord' 
-              ? 'bg-indigo-600 text-white shadow-md' 
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Landlord Console
-        </button>
-        <button
-          onClick={() => setActiveTab('arbiter')}
-          className={`flex-1 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
-            activeTab === 'arbiter' 
-              ? 'bg-indigo-600 text-white shadow-md' 
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Arbiter Console
-        </button>
+      {/* 1. Stat Grid Section (FINAI style top row) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Total Locked Deposits Dark Card (Mocks FINAI Total Balance card) */}
+        <div className="lg:col-span-1 bg-[#0f1717] text-white p-6 rounded-2xl flex flex-col justify-between h-48 border border-slate-900">
+          <div className="flex justify-between items-center text-slate-400 text-xs font-semibold uppercase tracking-wider">
+            <span>Total Locked Deposits</span>
+            <button 
+              onClick={() => setHideBalance(!hideBalance)}
+              className="text-slate-400 hover:text-white transition-colors"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+          </div>
+          
+          <div className="my-2">
+            <span className="text-3xl font-extrabold tracking-tight block">
+              {hideBalance ? (
+                <>$ ••••••••</>
+              ) : (
+                <>${totalLockedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+              )}
+            </span>
+            <span className="text-xs text-slate-400 font-medium block mt-1">
+              ≈ {totalLockedXlm.toLocaleString()} XLM
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[10px] text-green-400 font-bold bg-white/5 border border-white/10 w-fit px-2.5 py-0.5 rounded-full">
+            <span>↑ 5.2%</span>
+            <span className="text-slate-400 font-medium">vs last month</span>
+          </div>
+        </div>
+
+        {/* Three Stat Cards block (Mocks Monthly Income, Monthly Expenses, Monthly Savings) */}
+        <div className="lg:col-span-2 grid grid-cols-3 gap-4">
+          <div className="bg-white border border-slate-200/60 p-5 rounded-2xl flex flex-col justify-between h-48">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Active Leases</span>
+              <span className="bg-green-50 text-green-700 border border-green-200 text-[10px] font-bold px-1.5 py-0.5 rounded-lg">
+                🟢 {activeCount}
+              </span>
+            </div>
+            <div className="my-2">
+              <span className="text-2xl font-bold text-slate-900 block">{activeCount}</span>
+            </div>
+            <div className="text-[10px] text-green-600 font-bold bg-green-50/50 border border-green-100 w-fit px-2 py-0.5 rounded-lg">
+              ↑ 7.1% <span className="text-slate-400 font-medium">vs last month</span>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200/60 p-5 rounded-2xl flex flex-col justify-between h-48">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Pending Deposits</span>
+              <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-lg">
+                🟡 {pendingCount}
+              </span>
+            </div>
+            <div className="my-2">
+              <span className="text-2xl font-bold text-slate-900 block">{pendingCount}</span>
+            </div>
+            <div className="text-[10px] text-red-500 font-bold bg-red-50/50 border border-red-100 w-fit px-2 py-0.5 rounded-lg">
+              ↓ 3.6% <span className="text-slate-400 font-medium font-sans">vs last month</span>
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200/60 p-5 rounded-2xl flex flex-col justify-between h-48">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Resolved Claims</span>
+              <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-1.5 py-0.5 rounded-lg">
+                ✓ {settledCount}
+              </span>
+            </div>
+            <div className="my-2">
+              <span className="text-2xl font-bold text-slate-900 block">{settledCount}</span>
+            </div>
+            <div className="text-[10px] text-green-600 font-bold bg-green-50/50 border border-green-100 w-fit px-2 py-0.5 rounded-lg">
+              ↑ 8.3% <span className="text-slate-400 font-medium">vs last month</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Tenant Dashboard View */}
-      {activeTab === 'tenant' && (
-        <div className="space-y-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-2xl font-bold text-white tracking-tight">Active Tenant Escrows</h2>
-            <p className="text-slate-400 text-xs font-medium">Claims and deposits locked under your public address key.</p>
+      {/* 2. Donut Chart & Activity Rows (FINAI style middle row) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Lease status Donut Chart (Mocks FINAI Spending Overview card) */}
+        <div className="lg:col-span-2 bg-white border border-slate-200/60 p-6 rounded-2xl flex flex-col justify-between min-h-[300px]">
+          <div>
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 text-sm">Escrow Status Distribution</h3>
+              <span className="text-[10px] font-semibold text-slate-400">Live Contracts</span>
+            </div>
           </div>
 
-          {loadingAgreements ? (
-            <div className="py-12 text-center text-slate-500 font-medium">Loading claims from Soroban...</div>
-          ) : tenantAgreements.length === 0 ? (
-            <div className="bg-slate-900/40 border border-slate-850 p-8 rounded-2xl text-center text-slate-500">
-              <Clock className="h-10 w-10 mx-auto mb-3 opacity-35" />
-              <p className="text-sm font-semibold">No agreements found where you are the tenant.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {tenantAgreements.map((a) => (
-                <div key={a.id} className="bg-slate-900/60 border border-slate-850 p-6 rounded-2xl flex flex-col justify-between hover:border-slate-800 transition-colors duration-300">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-200">Agreement #{a.id}</span>
-                      {getStateBadge(a.state)}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800/60">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-500">Deposit locked</span>
-                        <span className="text-lg font-extrabold text-white mt-1 block">{a.amount} XLM</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-500">Landlord Key</span>
-                        <span className="text-sm font-semibold text-slate-300 mt-1.5 block font-mono">{a.landlord.substring(0, 4)}...{a.landlord.substring(a.landlord.length - 4)}</span>
-                      </div>
-                    </div>
-
-                    {/* Claims Negotiation View */}
-                    {a.state === 2 && (
-                      <div className="bg-indigo-500/5 border border-indigo-500/10 p-4 rounded-xl space-y-3">
-                        <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                          <CheckCircle className="h-4 w-4" />
-                          Landlord Refund Proposal
-                        </span>
-                        <p className="text-xs text-slate-400 leading-relaxed">The landlord proposed a split. Approve to release funds automatically, or dispute to trigger neutral arbitration.</p>
-                        <div className="flex gap-4 border-t border-slate-800/80 pt-3">
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Landlord Claim</span>
-                            <span className="text-sm font-bold text-rose-400">{a.refundLandlordAmount} XLM</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Tenant Refund</span>
-                            <span className="text-sm font-bold text-green-400">{a.refundTenantAmount} XLM</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions bar */}
-                  <div className="mt-6 flex flex-col gap-2">
-                    {a.state === 0 && (
-                      <button
-                        onClick={() => handleDeposit(a.id)}
-                        className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2"
-                      >
-                        <ArrowDownCircle className="h-4 w-4 text-slate-950" />
-                        Lock Deposit ({a.amount} XLM)
-                      </button>
-                    )}
-
-                    {a.state === 2 && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleApproveDeduction(a.id)}
-                          className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs"
-                        >
-                          Accept & Settle
-                        </button>
-                        <button
-                          onClick={() => {
-                            const input = prompt("Specify the reason for rejecting deduction:");
-                            if (input) {
-                              setDisputeReasons({ ...disputeReasons, [a.id]: input });
-                              handleRaiseDispute(a.id);
-                            }
-                          }}
-                          className="flex-1 bg-rose-600/10 hover:bg-rose-600/20 border border-rose-500/20 text-rose-300 font-bold py-2.5 px-4 rounded-xl text-xs"
-                        >
-                          Reject & Dispute
-                        </button>
-                      </div>
-                    )}
-
-                    {a.state === 1 && (
-                      <button
-                        onClick={() => {
-                          const input = prompt("Specify the reason for the dispute claim:");
-                          if (input) {
-                            setDisputeReasons({ ...disputeReasons, [a.id]: input });
-                            handleRaiseDispute(a.id);
-                          }
-                        }}
-                        className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-750 text-rose-300 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5"
-                      >
-                        <ShieldAlert className="h-4 w-4" />
-                        Raise Dispute Claims
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Landlord Dashboard View */}
-      {activeTab === 'landlord' && (
-        <div className="space-y-8">
-          {/* Create agreement form */}
-          <div className="bg-slate-900/60 border border-slate-850 p-6 rounded-2xl space-y-6">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
-                <Plus className="h-4 w-4" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center py-4">
+            {/* SVG Donut Chart representation */}
+            <div className="flex items-center justify-center relative h-36">
+              <svg width="150" height="150" viewBox="0 0 150 150">
+                <circle cx="75" cy="75" r="50" fill="transparent" stroke="#f1f5f9" strokeWidth="18" />
+                {/* Active split segment - Green */}
+                <circle cx="75" cy="75" r="50" fill="transparent" stroke="#1b8b3a" strokeWidth="18" 
+                  strokeDasharray="314.15" strokeDashoffset="120" strokeLinecap="round" transform="rotate(-90 75 75)" />
+                {/* Pending split segment - Light Green */}
+                <circle cx="75" cy="75" r="50" fill="transparent" stroke="#a7f3d0" strokeWidth="18" 
+                  strokeDasharray="314.15" strokeDashoffset="240" strokeLinecap="round" transform="rotate(40 75 75)" />
+                {/* Dispute split segment - Dark Charcoal */}
+                <circle cx="75" cy="75" r="50" fill="transparent" stroke="#0f1717" strokeWidth="18" 
+                  strokeDasharray="314.15" strokeDashoffset="280" strokeLinecap="round" transform="rotate(130 75 75)" />
+              </svg>
+              <div className="absolute text-center">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Top State</span>
+                <span className="text-sm font-extrabold text-slate-800 block">Active Lease</span>
               </div>
-              <h3 className="font-bold text-white text-lg">Create Escrow Agreement</h3>
             </div>
 
-            <form onSubmit={handleCreateAgreement} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-400">Tenant Public Key Address (G...)</label>
-                <input
-                  type="text"
-                  placeholder="G..."
+            {/* Labels list */}
+            <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#1b8b3a]" />
+                  <span className="text-slate-500">Active</span>
+                </div>
+                <span className="text-slate-800 text-xs block pl-4">50%</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#a7f3d0]" />
+                  <span className="text-slate-500">Pending</span>
+                </div>
+                <span className="text-slate-800 text-xs block pl-4">20%</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#0f1717]" />
+                  <span className="text-slate-500">Disputed</span>
+                </div>
+                <span className="text-slate-800 text-xs block pl-4">14%</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-slate-300" />
+                  <span className="text-slate-500">Settled</span>
+                </div>
+                <span className="text-slate-800 text-xs block pl-4">16%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Column Right Block (Mocks FINAI Smart Insight and Quick Actions) */}
+        <div className="lg:col-span-1 flex flex-col justify-between gap-6">
+          {/* AI Smart Insight Card */}
+          <div className="bg-[#0f1717] text-white p-5 rounded-2xl flex flex-col justify-between flex-1 border border-slate-900">
+            <div className="flex items-center gap-1.5 text-[#1b8b3a] font-bold text-xs">
+              <span>💡 AI Smart Insight</span>
+            </div>
+            
+            <p className="text-slate-300 text-xs leading-relaxed my-3 font-medium">
+              You have {pendingCount} active agreements awaiting your deposit signature. Want suggestions to speed up verification?
+            </p>
+
+            <button 
+              onClick={() => setShowLockModal(true)}
+              className="w-full bg-[#1b8b3a] hover:bg-[#156c2d] text-white text-xs font-semibold py-2 px-4 rounded-xl transition-colors text-center"
+            >
+              View Suggestions
+            </button>
+          </div>
+
+          {/* Quick Actions Card */}
+          <div className="bg-white border border-slate-200/60 p-5 rounded-2xl flex flex-col justify-between">
+            <h3 className="font-bold text-slate-800 text-xs mb-4 uppercase tracking-wider text-slate-400">Quick Actions</h3>
+            <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-bold text-slate-600">
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="h-11 w-11 rounded-xl bg-[#f4f6f6] border border-slate-200/60 flex items-center justify-center text-[#1b8b3a]">
+                  <Plus className="h-4 w-4" />
+                </div>
+                <span>Create</span>
+              </button>
+              
+              <button 
+                onClick={() => setShowLockModal(true)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="h-11 w-11 rounded-xl bg-[#f4f6f6] border border-slate-200/60 flex items-center justify-center text-[#1b8b3a]">
+                  <Lock className="h-4 w-4" />
+                </div>
+                <span>Lock</span>
+              </button>
+
+              <button 
+                onClick={() => setShowProposeModal(true)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="h-11 w-11 rounded-xl bg-[#f4f6f6] border border-slate-200/60 flex items-center justify-center text-[#1b8b3a]">
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+                <span>Refund</span>
+              </button>
+
+              <button 
+                onClick={() => setShowDisputeModal(true)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="h-11 w-11 rounded-xl bg-[#f4f6f6] border border-slate-200/60 flex items-center justify-center text-[#1b8b3a]">
+                  <Scale className="h-4 w-4" />
+                </div>
+                <span>Dispute</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Recommendations & Recent Tables (FINAI style bottom row) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recommendation Cards list */}
+        <div className="lg:col-span-1 bg-white border border-slate-200/60 p-5 rounded-2xl flex flex-col justify-between">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider text-slate-400">AI Recommendations</h3>
+            <span className="text-[10px] text-[#1b8b3a] font-bold cursor-pointer hover:underline">View All</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="p-3 bg-[#f4f6f6] border border-slate-200/50 rounded-xl flex items-center gap-3">
+              <div className="p-2 bg-white rounded-lg text-[#1b8b3a]">
+                <Clock className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-slate-800 block">Lock pending deposits</span>
+                <span className="text-[10px] text-slate-400 block font-medium">Agreement #4 requires confirmation</span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-[#f4f6f6] border border-slate-200/50 rounded-xl flex items-center gap-3">
+              <div className="p-2 bg-white rounded-lg text-[#1b8b3a]">
+                <User className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-slate-800 block">Update your profiles</span>
+                <span className="text-[10px] text-slate-400 block font-medium">Setup custom configurations</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Agreements list (Mocks Recent Transactions) */}
+        <div className="lg:col-span-2 bg-white border border-slate-200/60 p-6 rounded-2xl flex flex-col justify-between min-h-[250px]">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-slate-800 text-sm">Recent Escrow Agreements</h3>
+            <span className="text-[10px] text-[#1b8b3a] font-bold cursor-pointer hover:underline">View All</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-semibold">
+              <thead>
+                <tr className="text-slate-400 border-b border-slate-100">
+                  <th className="py-2.5">Title</th>
+                  <th className="py-2.5">Date</th>
+                  <th className="py-2.5">Role</th>
+                  <th className="py-2.5">Status</th>
+                  <th className="py-2.5 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {agreements.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
+                      No agreements found. Connect your wallet to view or create agreements.
+                    </td>
+                  </tr>
+                ) : (
+                  agreements.slice(-3).map((agreement) => {
+                    const isUserLandlord = agreement.landlord.toLowerCase() === address?.toLowerCase();
+                    return (
+                      <tr key={agreement.id} className="text-slate-700">
+                        <td className="py-3 flex items-center gap-2.5">
+                          <div className="p-1.5 bg-[#f4f6f6] border border-slate-200/60 rounded-lg text-[#1b8b3a]">
+                            <Home className="h-3.5 w-3.5" />
+                          </div>
+                          <span>Agreement #{agreement.id}</span>
+                        </td>
+                        <td className="py-3 text-slate-400">Today</td>
+                        <td className="py-3 capitalize">{isUserLandlord ? 'Landlord' : 'Tenant'}</td>
+                        <td className="py-3">
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                            agreement.state === 1 
+                              ? 'bg-green-50 text-green-700 border border-green-100'
+                              : agreement.state === 3 
+                              ? 'bg-red-50 text-red-700 border border-red-100'
+                              : 'bg-slate-50 text-slate-600 border border-slate-100'
+                          }`}>
+                            {getStatusString(agreement.state)}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right font-extrabold text-slate-900">
+                          {isUserLandlord ? '+' : '-'}{agreement.amount} XLM
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ----------------------------------------------------
+          Interactive Action Modals (Clean, Flat White Style)
+         ---------------------------------------------------- */}
+
+      {/* A. Create Escrow Agreement Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-[#0f1717]/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <form 
+            onSubmit={handleCreateAgreement}
+            className="bg-white border border-slate-200/80 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 text-slate-800"
+          >
+            <h2 className="text-lg font-bold text-slate-900">Create Escrow Agreement</h2>
+            <p className="text-xs text-slate-400">Initiate a security deposit lock by specifying your tenant's address and the lockup amount.</p>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Tenant Address (Public Key)</label>
+                <input 
+                  type="text" 
                   value={tenantAddr}
                   onChange={(e) => setTenantAddr(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl p-3 text-sm text-slate-200 font-mono outline-none"
+                  placeholder="G..." 
+                  className="w-full bg-[#f4f6f6] border border-slate-200 py-2.5 px-3 rounded-xl text-xs focus:outline-none focus:border-[#1b8b3a] font-mono"
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-400">Escrow Security Amount (XLM)</label>
-                <input
-                  type="number"
-                  placeholder="500"
+
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Deduction / Deposit Amount (XLM)</label>
+                <input 
+                  type="number" 
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
-                  className="w-full bg-slate-950 border border-stellar border-slate-800 focus:border-indigo-500 rounded-xl p-3 text-sm text-slate-200 outline-none"
+                  placeholder="1000" 
+                  className="w-full bg-[#f4f6f6] border border-slate-200 py-2.5 px-3 rounded-xl text-xs focus:outline-none focus:border-[#1b8b3a]"
                   required
                 />
               </div>
-              <button
-                type="submit"
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-xl text-sm flex items-center justify-center gap-1.5 transition-colors"
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button 
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="flex-1 bg-[#f4f6f6] border border-slate-200 text-slate-600 py-2.5 px-4 rounded-xl text-xs font-semibold text-center"
               >
-                Create Agreement
+                Cancel
               </button>
-            </form>
-          </div>
+              <button 
+                type="submit"
+                className="flex-1 bg-[#1b8b3a] hover:bg-[#156c2d] text-white py-2.5 px-4 rounded-xl text-xs font-semibold text-center"
+              >
+                Create Escrow
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
-          {/* Agreements List */}
-          <div className="space-y-6">
-            <h2 className="text-xl font-bold text-white tracking-tight">Active Landlord Agreements</h2>
+      {/* B. Lock Deposit (Pay Escrow) Modal */}
+      {showLockModal && (
+        <div className="fixed inset-0 bg-[#0f1717]/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200/80 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 text-slate-800">
+            <h2 className="text-lg font-bold text-slate-900">Lock Pending Deposits</h2>
+            <p className="text-xs text-slate-400">Review agreements waiting for your escrow deposit authorization.</p>
 
-            {loadingAgreements ? (
-              <div className="py-12 text-center text-slate-500 font-medium">Loading claims...</div>
-            ) : landlordAgreements.length === 0 ? (
-              <div className="bg-slate-900/40 border border-slate-850 p-8 rounded-2xl text-center text-slate-500">
-                <Clock className="h-10 w-10 mx-auto mb-3 opacity-35" />
-                <p className="text-sm font-semibold">No active escrows registered under your landlord address.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {landlordAgreements.map((a) => (
-                  <div key={a.id} className="bg-slate-900/60 border border-slate-850 p-6 rounded-2xl flex flex-col justify-between hover:border-slate-800 transition-colors duration-300">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-200">Agreement #{a.id}</span>
-                        {getStateBadge(a.state)}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800/60">
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-500">Deposit locked</span>
-                          <span className="text-lg font-extrabold text-white mt-1 block">{a.amount} XLM</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-500">Tenant Key</span>
-                          <span className="text-sm font-semibold text-slate-300 mt-1.5 block font-mono">{a.tenant.substring(0, 4)}...{a.tenant.substring(a.tenant.length - 4)}</span>
-                        </div>
-                      </div>
-
-                      {/* Propose Refund Form */}
-                      {(a.state === 1 || a.state === 2) && (
-                        <div className="bg-slate-950 p-4 rounded-xl border border-slate-850/80 space-y-4">
-                          <span className="text-xs font-bold text-slate-300 uppercase block">Propose Refund Split</span>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <label className="text-[10px] font-semibold text-slate-500">Landlord Claim</label>
-                              <input
-                                type="number"
-                                placeholder="100"
-                                value={proposals[a.id]?.landlord || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const calculatedTenant = Math.max(0, a.amount - parseFloat(val || '0'));
-                                  setProposals({
-                                    ...proposals,
-                                    [a.id]: { landlord: val, tenant: isNaN(calculatedTenant) ? '' : calculatedTenant.toString() }
-                                  });
-                                }}
-                                className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 outline-none"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="text-[10px] font-semibold text-slate-500">Tenant Refund</label>
-                              <input
-                                type="number"
-                                placeholder="400"
-                                value={proposals[a.id]?.tenant || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const calculatedLandlord = Math.max(0, a.amount - parseFloat(val || '0'));
-                                  setProposals({
-                                    ...proposals,
-                                    [a.id]: { landlord: isNaN(calculatedLandlord) ? '' : calculatedLandlord.toString(), tenant: val }
-                                  });
-                                }}
-                                className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 outline-none"
-                              />
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleProposeDeduction(a.id, a.amount)}
-                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-lg text-xs"
-                          >
-                            Submit Refund Proposal
-                          </button>
-                        </div>
-                      )}
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {tenantAgreements.filter(a => a.state === 0).length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                  No pending agreements awaiting your signature.
+                </div>
+              ) : (
+                tenantAgreements.filter(a => a.state === 0).map((agreement) => (
+                  <div key={agreement.id} className="p-3 bg-[#f4f6f6] border border-slate-200 rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold block">Agreement #{agreement.id}</span>
+                      <span className="text-[10px] text-slate-400 block font-mono">Landlord: {agreement.landlord.substring(0, 6)}...</span>
                     </div>
-
-                    {/* Actions */}
-                    <div className="mt-6 flex flex-col gap-2">
-                      {a.state === 0 && (
-                        <span className="w-full text-center text-xs text-slate-500 border border-slate-850 p-3 rounded-xl font-medium">Awaiting tenant payment...</span>
-                      )}
-
-                      {a.state === 2 && (
-                        <div className="bg-indigo-500/5 border border-indigo-500/10 p-3.5 rounded-xl text-center">
-                          <span className="text-xs block text-slate-400 font-medium">Proposal submitted. Waiting for tenant approval...</span>
-                        </div>
-                      )}
-                    </div>
+                    <button 
+                      onClick={() => handleDeposit(agreement.id, agreement.amount)}
+                      className="bg-[#1b8b3a] hover:bg-[#156c2d] text-white text-[10px] font-bold py-1.5 px-3 rounded-lg"
+                    >
+                      Deposit {agreement.amount} XLM
+                    </button>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
+
+            <button 
+              onClick={() => setShowLockModal(false)}
+              className="w-full bg-[#f4f6f6] border border-slate-200 text-slate-600 py-2.5 px-4 rounded-xl text-xs font-semibold text-center"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
 
-      {/* Arbiter / Admin View */}
-      {activeTab === 'arbiter' && (
-        <div className="space-y-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-2xl font-bold text-white tracking-tight">Neutral Arbitration Console</h2>
-            <p className="text-slate-400 text-xs font-medium">Review and resolve claims escalated to the Dispute Contract registry.</p>
-          </div>
+      {/* C. Propose Refund / Deduction Modal */}
+      {showProposeModal && (
+        <div className="fixed inset-0 bg-[#0f1717]/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200/80 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 text-slate-800">
+            <h2 className="text-lg font-bold text-slate-900">Propose Refund Split</h2>
+            <p className="text-xs text-slate-400">Submit a refund deduction proposal to return locked funds back to the tenant.</p>
 
-          {loadingDisputes ? (
-            <div className="py-12 text-center text-slate-500 font-medium">Loading claims...</div>
-          ) : disputes.length === 0 ? (
-            <div className="bg-slate-900/40 border border-slate-850 p-8 rounded-2xl text-center text-slate-500">
-              <Scale className="h-10 w-10 mx-auto mb-3 opacity-35 text-indigo-400" />
-              <p className="text-sm font-semibold">No active disputes registered in the arbitrator contract.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {disputes.map((d) => (
-                <div key={d.id} className="bg-slate-900/60 border border-slate-850 p-6 rounded-2xl flex flex-col justify-between hover:border-slate-800 transition-colors duration-300">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-200">Dispute #{d.id} (Agreement #{d.agreementId})</span>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                        d.state === 0 
-                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                          : 'bg-green-500/10 text-green-400 border border-green-500/20'
-                      }`}>
-                        {d.state === 0 ? 'Active Dispute' : 'Resolved'}
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-850/80 space-y-3">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                        <AlertCircle className="h-4 w-4 text-rose-400" />
-                        <span>Dispute claim reason:</span>
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {landlordAgreements.filter(a => a.state === 1).length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                  No active agreements available to propose a refund.
+                </div>
+              ) : (
+                landlordAgreements.filter(a => a.state === 1).map((agreement) => {
+                  const prop = proposals[agreement.id] || { landlord: '0', tenant: agreement.amount.toString() };
+                  return (
+                    <div key={agreement.id} className="p-4 bg-[#f4f6f6] border border-slate-200 rounded-2xl space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold">Agreement #{agreement.id} ({agreement.amount} XLM)</span>
+                        <span className="text-[10px] text-slate-400 font-mono">Tenant: {agreement.tenant.substring(0, 6)}...</span>
                       </div>
-                      <p className="text-sm text-slate-200 font-medium bg-slate-900 p-2.5 rounded border border-slate-850 break-words italic">"{d.reason}"</p>
                       
-                      <div className="grid grid-cols-2 gap-4 border-t border-slate-800/80 pt-3 text-xs">
+                      <div className="grid grid-cols-2 gap-3 text-[10px]">
                         <div>
-                          <span className="text-slate-500 block font-semibold uppercase">Total Locked</span>
-                          <span className="text-sm font-bold text-white">{d.amount} XLM</span>
+                          <label className="text-slate-400 font-bold block mb-1">Landlord Claim (Deduction)</label>
+                          <input 
+                            type="number"
+                            value={prop.landlord}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              const amt = agreement.amount;
+                              const claim = parseFloat(value) || 0;
+                              setProposals({
+                                ...proposals,
+                                [agreement.id]: { landlord: value, tenant: Math.max(0, amt - claim).toString() }
+                              });
+                            }}
+                            className="w-full bg-white border border-slate-200 p-2 rounded-lg text-slate-700"
+                          />
                         </div>
                         <div>
-                          <span className="text-slate-500 block font-semibold uppercase">Tenant</span>
-                          <span className="text-xs font-mono text-slate-400 block">{d.tenant.substring(0, 4)}...{d.tenant.substring(d.tenant.length - 4)}</span>
+                          <label className="text-slate-400 font-bold block mb-1">Tenant Refund (Remainder)</label>
+                          <input 
+                            type="text"
+                            value={prop.tenant}
+                            disabled
+                            className="w-full bg-slate-100 border border-slate-200 p-2 rounded-lg text-slate-400 cursor-not-allowed"
+                          />
                         </div>
                       </div>
-                    </div>
 
-                    {/* Resolution Form */}
-                    {d.state === 0 && (
-                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-850/80 space-y-4">
-                        <span className="text-xs font-bold text-indigo-300 uppercase block">Arbiter Resolution Split</span>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-semibold text-slate-500">Pay to Landlord</label>
-                            <input
-                              type="number"
-                              placeholder="Landlord share"
-                              value={resolutions[d.id]?.landlord || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const calculatedTenant = Math.max(0, d.amount - parseFloat(val || '0'));
-                                setResolutions({
-                                  ...resolutions,
-                                  [d.id]: { landlord: val, tenant: isNaN(calculatedTenant) ? '' : calculatedTenant.toString() }
-                                });
-                              }}
-                              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 outline-none"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-semibold text-slate-500">Refund to Tenant</label>
-                            <input
-                              type="number"
-                              placeholder="Tenant share"
-                              value={resolutions[d.id]?.tenant || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const calculatedLandlord = Math.max(0, d.amount - parseFloat(val || '0'));
-                                setResolutions({
-                                  ...resolutions,
-                                  [d.id]: { landlord: isNaN(calculatedLandlord) ? '' : calculatedLandlord.toString(), tenant: val }
-                                });
-                              }}
-                              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 outline-none"
-                            />
-                          </div>
+                      <button 
+                        onClick={() => handleProposeDeduction(agreement.id)}
+                        className="w-full bg-[#1b8b3a] hover:bg-[#156c2d] text-white text-xs font-semibold py-2 px-3 rounded-xl"
+                      >
+                        Submit Split Proposal
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <button 
+              onClick={() => setShowProposeModal(false)}
+              className="w-full bg-[#f4f6f6] border border-slate-200 text-slate-600 py-2.5 px-4 rounded-xl text-xs font-semibold text-center"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* D. Dispute List & Arbiter Resolution Modal */}
+      {showDisputeModal && (
+        <div className="fixed inset-0 bg-[#0f1717]/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200/80 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 text-slate-800">
+            <h2 className="text-lg font-bold text-slate-900">Dispute Resolution Console</h2>
+            <p className="text-xs text-slate-400">File a dispute as a tenant, or review registry filings to resolve active claims as an arbiter.</p>
+
+            <div className="space-y-4 max-h-80 overflow-y-auto">
+              {/* Tenant view to raise disputes */}
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#1b8b3a] tracking-widest block mb-2">Raise Escrow Dispute</span>
+                {tenantAgreements.filter(a => a.state === 2).length === 0 ? (
+                  <div className="text-center py-3 bg-[#f4f6f6] border border-slate-200/50 rounded-xl text-[10px] text-slate-400">
+                    No pending landlord proposals available to dispute.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {tenantAgreements.filter(a => a.state === 2).map((agreement) => (
+                      <div key={agreement.id} className="p-3 bg-[#f4f6f6] border border-slate-200 rounded-xl space-y-3">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold">Agreement #{agreement.id}</span>
+                          <span className="text-slate-400">Proposed Claim: {agreement.refundLandlordAmount} XLM</span>
                         </div>
-                        <button
-                          onClick={() => handleResolveDispute(d.id, d.amount)}
-                          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-lg text-xs"
+                        
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            placeholder="Reason for dispute..."
+                            value={disputeReasons[agreement.id] || ''}
+                            onChange={(e) => setDisputeReasons({ ...disputeReasons, [agreement.id]: e.target.value })}
+                            className="w-full bg-white border border-slate-200 py-1.5 px-3 rounded-lg text-xs"
+                          />
+                        </div>
+
+                        <button 
+                          onClick={() => handleRaiseDispute(agreement.id)}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold py-1.5 px-3 rounded-lg"
                         >
-                          Execute Resolution Split
+                          Reject proposal & file dispute
                         </button>
                       </div>
-                    )}
+                    ))}
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
+
+              {/* Arbiter Console */}
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest block mb-2">Arbiter Active Claims</span>
+                {disputes.filter(d => d.state === 0).length === 0 ? (
+                  <div className="text-center py-4 bg-[#f4f6f6] border border-slate-200/50 rounded-xl text-[10px] text-slate-400">
+                    No active disputes registered in the contract.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {disputes.filter(d => d.state === 0).map((dispute) => {
+                      const res = resolutions[dispute.id] || { landlord: '0', tenant: '0' };
+                      return (
+                        <div key={dispute.id} className="p-3 bg-red-50/50 border border-red-200 rounded-xl space-y-3">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold">Dispute #{dispute.id} (Escrow #{dispute.agreementId})</span>
+                            <span className="text-slate-400">Total: {dispute.amount} XLM</span>
+                          </div>
+                          
+                          <p className="text-[10px] text-slate-500 bg-white p-2 rounded-lg border border-slate-200">
+                            Reason: "{dispute.reason}"
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-3 text-[10px]">
+                            <div>
+                              <label className="text-slate-400 block mb-1">Landlord Award (XLM)</label>
+                              <input 
+                                type="number" 
+                                value={res.landlord}
+                                onChange={(e) => setResolutions({
+                                  ...resolutions,
+                                  [dispute.id]: { ...res, landlord: e.target.value }
+                                })}
+                                className="w-full bg-white border border-slate-200 p-2 rounded-lg text-slate-700"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-slate-400 block mb-1">Tenant Award (XLM)</label>
+                              <input 
+                                type="number" 
+                                value={res.tenant}
+                                onChange={(e) => setResolutions({
+                                  ...resolutions,
+                                  [dispute.id]: { ...res, tenant: e.target.value }
+                                })}
+                                className="w-full bg-white border border-slate-200 p-2 rounded-lg text-slate-700"
+                              />
+                            </div>
+                          </div>
+
+                          <button 
+                            onClick={() => handleResolveDispute(dispute.id)}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold py-1.5 px-3 rounded-lg"
+                          >
+                            Execute Arbiter Resolution
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+
+            <button 
+              onClick={() => setShowDisputeModal(false)}
+              className="w-full bg-[#f4f6f6] border border-slate-200 text-slate-600 py-2.5 px-4 rounded-xl text-xs font-semibold text-center"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>
