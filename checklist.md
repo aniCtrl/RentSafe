@@ -6,6 +6,10 @@ This checklist outlines the manual configuration steps required to finalize the 
 
 ## 🚀 1. Live Frontend Deployment (Vercel / Netlify)
 Host the React/Next.js frontend to make the application accessible:
+
+> [!IMPORTANT]
+> In your Vercel Project Settings (under **General**), make sure to edit the **Root Directory** and set it to `frontend`. This ensures Vercel installs packages and runs the build script inside the subdirectory.
+
 1. **Sign Up/Log In** to [Vercel](https://vercel.com) or [Netlify](https://netlify.com).
 2. **Import the repository**: Connect it to the GitHub repository for the project.
 3. **Configure Environment Variables**: Add the following keys under the Build & Environment settings:
