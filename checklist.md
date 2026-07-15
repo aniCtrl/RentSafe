@@ -8,7 +8,10 @@ This checklist outlines the manual configuration steps required to finalize the 
 Host the React/Next.js frontend to make the application accessible:
 
 > [!IMPORTANT]
-> In your Vercel Project Settings (under **General**), make sure to edit the **Root Directory** and set it to `frontend`. This ensures Vercel installs packages and runs the build script inside the subdirectory.
+> In your Vercel Project Settings (under **General**):
+> 1. Set the **Root Directory** to `frontend`.
+> 2. Ensure that the **Framework Preset** is set to **Next.js** (we have added a `frontend/vercel.json` to enforce this, but double check it in the settings).
+> This ensures Vercel installs the proper packages, compiles the pages, and routes client traffic correctly.
 
 1. **Sign Up/Log In** to [Vercel](https://vercel.com) or [Netlify](https://netlify.com).
 2. **Import the repository**: Connect it to the GitHub repository for the project.
