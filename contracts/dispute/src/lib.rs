@@ -34,7 +34,7 @@ pub enum DataKey {
 // Client definition to call back into Escrow
 #[soroban_sdk::contractclient(name = "EscrowClient")]
 pub trait EscrowContractInterface {
-    fn resolve_dispute(env: Env, landlord_share: i128, tenant_share: i128) -> Result<(), u32>;
+    fn resolve_dispute(env: Env, landlord_share: i128, tenant_share: i128);
 }
 
 #[contract]
@@ -111,10 +111,8 @@ impl DisputeContract {
         let escrow = Self::get_escrow(&env)?;
         let escrow_client = EscrowClient::new(&env, &escrow);
 
-        // Call Escrow resolve_dispute and handle error propagation
-        if let Err(_) = escrow_client.resolve_dispute(&landlord_share, &tenant_share) {
-            return Err(Error::InvalidSplit);
-        }
+        // Call Escrow resolve_dispute. Any failure will automatically panic and revert the transaction.
+        escrow_client.resolve_dispute(&landlord_share, &tenant_share);
 
         // Emit Dispute Resolved Event
         env.events().publish(
