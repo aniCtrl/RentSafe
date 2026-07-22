@@ -39,8 +39,8 @@ DISPUTE_ID=$(stellar contract deploy \
 echo "Dispute Contract Deployed. ID: $DISPUTE_ID"
 
 # Get WASM Hashes
-ESCROW_WASM_HASH=$(stellar contract inspect --wasm "$ESCROW_WASM" | grep -i "hash" | awk '{print $NF}' || echo "")
-DISPUTE_WASM_HASH=$(stellar contract inspect --wasm "$DISPUTE_WASM" | grep -i "hash" | awk '{print $NF}' || echo "")
+ESCROW_WASM_HASH=$(shasum -a 256 "$ESCROW_WASM" | awk '{print $1}' || echo "")
+DISPUTE_WASM_HASH=$(shasum -a 256 "$DISPUTE_WASM" | awk '{print $1}' || echo "")
 
 # Write metadata output
 METADATA_DIR="deployments"

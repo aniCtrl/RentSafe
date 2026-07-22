@@ -1,48 +1,58 @@
 # RentSafe — Decentralized Rental Deposit Escrow Platform
 
-RentSafe is a decentralized rental deposit escrow platform built on Stellar using Soroban smart contracts. It enables tenants and landlords to lock, manage, and mutually settle rental deposits trustlessly, with arbitrator-backed dispute resolution.
+RentSafe is a production-grade, decentralized rental deposit escrow platform built on Stellar using Soroban smart contracts. It enables tenants and landlords to lock, manage, and mutually settle rental deposits trustlessly, with arbitrator-backed dispute resolution. All values in the UI are formatted in native **XLM** with secondary USD conversion tooltips.
 
 ---
 
-## 1. Project Structure
+## 1. Project Architecture
+
+The codebase contains the full smart contract workspace (Rust) and the Next.js frontend application (TypeScript + Tailwind v4 + Zustand + React Query):
 
 ```
 .
 ├── Cargo.toml
 ├── Cargo.lock
-├── .gitignore
-├── README.md
-├── .env.example
-├── .env                  # Generated during setup
+├── package.json
+├── tsconfig.json
+├── vitest.config.ts
+├── tailwind.config.ts
 ├── .github/
 │   └── workflows/
-│       └── ci.yml        # CI/CD Contracts Pipeline
+│       └── ci.yml             # Github Actions CI pipeline (Node build, tests, Cargo check)
 ├── contracts/
-│   ├── escrow/           # Escrow contract source and unit/integration tests
-│   └── dispute/          # Dispute contract source
+│   ├── escrow/                # Rental Escrow smart contract (fund, activate, settle, dispute)
+│   └── dispute/               # Dispute arbitration smart contract
 ├── deployments/
-│   └── testnet.json      # Live deployment details (addresses, hashes)
-├── docs/
-│   ├── ARCHITECTURE.md       # Platform system architecture & Mermaid diagrams
-│   ├── CONTRACTS.md          # Storage layout, methods, and event schema
-│   ├── INTER_CONTRACT_FLOW.md # Sequence diagram of cross-contract calls
-│   └── SECURITY.md           # Security audits, vulnerabilities, and upgrade strategy
-└── scripts/
-    ├── deploy.sh         # Compiles and deploys WASM files
-    ├── initialize.py     # Invokes initialization and links contracts programmatically
-    ├── initialize.sh     # Wrapper for initialization python script
-    └── upgrade.sh        # Automates WASM updates on-chain
+│   └── testnet.json           # Live testnet deployed contract IDs and hashes
+├── scripts/
+│   ├── deploy.sh              # Build and deploy script compiling WASMs to testnet
+│   ├── initialize.py          # Invokes initialize() and set_dispute_contract()
+│   ├── initialize.sh          # Shell wrapper to invoke the initialize python script
+│   └── upgrade.sh             # Upgrades compiled WASM code hash on-chain
+├── src/
+│   ├── app/                   # Next.js App Router (Landing, Dashboard panel, Create form)
+│   ├── bindings/              # Auto-generated TS bindings client for contracts
+│   ├── components/            # Reusable UI elements (WalletConnectModal, ActivityFeed, etc.)
+│   ├── hooks/                 # Custom React hooks (useEventStream)
+│   ├── lib/                   # Base configurations (stellar client, JSON-RPC view handlers)
+│   ├── services/              # Client-side contract interaction layer (ContractService)
+│   └── store/                 # State management layer (Zustand session store)
 ```
 
 ---
 
 ## 2. Smart Contract Lifecycle
 
-The Escrow contract goes through a strict state machine:
-`Created` → `Funded` → `Active` → `SettlementRequested` → `Disputed` → `Resolved` → `Closed`
+The Escrow contract strictly coordinates the lease security deposit state machine:
+`Created` (0) $\rightarrow$ `Funded` (1) $\rightarrow$ `Active` (2) $\rightarrow$ `SettlementRequested` (3) $\rightarrow$ `Disputed` (4) $\rightarrow$ `Resolved` (5) $\rightarrow$ `Closed` (6)
 
-The Dispute contract follows a linear lifecycle:
-`Created` → `Active` → `Resolved`
+* **Created**: Escrow initialized with landlord, tenant, arbitrator, token, and target deposit size.
+* **Funded**: Tenant locks target deposit size inside the contract instance.
+* **Active**: Landlord activates the lease upon key handover. Funds remain locked.
+* **SettlementRequested**: A payout split (e.g. damages deduction) is proposed by either landlord or tenant.
+* **Disputed**: Raised by a counterparty rejecting a proposed split. Payout authority is locked and delegated to the Arbitrator.
+* **Resolved**: Arbitrator submits custom split distributions to close the dispute.
+* **Closed**: Funds are unlocked and paid out to landlords and tenants.
 
 ---
 
@@ -50,61 +60,82 @@ The Dispute contract follows a linear lifecycle:
 
 The smart contracts are deployed and initialized on the **Stellar Testnet**:
 
-### Contract Addresses & Explorer Links
-
 | Contract | Address / ID | Explorer Link |
 |---|---|---|
-| **Escrow Contract** | `CBPI35R5GHDJOVGE6CET2FKDJ2I77KCKOXWQ62NHGQN4YCV3MS7OS2Q7` | [Stellar Expert — Escrow](https://stellar.expert/explorer/testnet/contract/CBPI35R5GHDJOVGE6CET2FKDJ2I77KCKOXWQ62NHGQN4YCV3MS7OS2Q7) |
-| **Dispute Contract** | `CCTC5ZQPSXD6DVXNRTJBTJC32PTPAGAWQEBPVKJHQAI5UZVS54TF4BSX` | [Stellar Expert — Dispute](https://stellar.expert/explorer/testnet/contract/CCTC5ZQPSXD6DVXNRTJBTJC32PTPAGAWQEBPVKJHQAI5UZVS54TF4BSX) |
+| **Escrow Contract** | `CCFATHQC6KASED4FK3V4IYSTN2ODHFC2AW635BXUD66OLPVICA2WN3AG` | [Stellar Expert — Escrow](https://stellar.expert/explorer/testnet/contract/CCFATHQC6KASED4FK3V4IYSTN2ODHFC2AW635BXUD66OLPVICA2WN3AG) |
+| **Dispute Contract** | `CAEPHREYA4AFHY3TVFC2PM5ARRAMNHYLJZQOBX6255T5ASEE3BBQ5KHO` | [Stellar Expert — Dispute](https://stellar.expert/explorer/testnet/contract/CAEPHREYA4AFHY3TVFC2PM5ARRAMNHYLJZQOBX6255T5ASEE3BBQ5KHO) |
 
-### Transaction Hashes
-
-| Action | Transaction Hash | Explorer Link |
-|---|---|---|
-| **Deploy Escrow** | `efdf43f5741afb8ab6c7a76da41faf707c39d184173dfb9581e9bbd924489250` | [Explorer Link](https://stellar.expert/explorer/testnet/tx/efdf43f5741afb8ab6c7a76da41faf707c39d184173dfb9581e9bbd924489250) |
-| **Deploy Dispute** | `c7365508444432d169a2f7baec854e8f3f6863f730f5d0863bc15689cf9a16e2` | [Explorer Link](https://stellar.expert/explorer/testnet/tx/c7365508444432d169a2f7baec854e8f3f6863f730f5d0863bc15689cf9a16e2) |
-| **Init Escrow** | `74721826b6222e6e09ffc1cd8189afbbf6c49fd7f5d23a96c941d7c5553cba03` | [Explorer Link](https://stellar.expert/explorer/testnet/tx/74721826b6222e6e09ffc1cd8189afbbf6c49fd7f5d23a96c941d7c5553cba03) |
-| **Init Dispute** | `568ec59b9945d1589d614f948b9dc5dccae61584591b9c7f883022a507925f07` | [Explorer Link](https://stellar.expert/explorer/testnet/tx/568ec59b9945d1589d614f948b9dc5dccae61584591b9c7f883022a507925f07) |
-| **Link Contracts** | `3163575b3f37f8d33aaf9c493d473b7e2d4722937568e4d0c4df24c80435b88a` | [Explorer Link](https://stellar.expert/explorer/testnet/tx/3163575b3f37f8d33aaf9c493d473b7e2d4722937568e4d0c4df24c80435b88a) |
-| **Tenant Fund (10 XLM)** | `ab5ff9f31d371d840043eb85988efc9615c0c33c9f44beb04a39c5e6e6e16a89` | [Explorer Link](https://stellar.expert/explorer/testnet/tx/ab5ff9f31d371d840043eb85988efc9615c0c33c9f44beb04a39c5e6e6e16a89) |
-| **Landlord Activate** | `771ea2b6188f5ecd86952a0b7f73aa2963881c7bb15a03084a84c79669a9589c` | [Explorer Link](https://stellar.expert/explorer/testnet/tx/771ea2b6188f5ecd86952a0b7f73aa2963881c7bb15a03084a84c79669a9589c) |
-| **Raise Dispute (Tenant)** | `f7ebc16f1751be9a926521370cec6b904120d61c432a92754f4e1543faf01680` | [Explorer Link](https://stellar.expert/explorer/testnet/tx/f7ebc16f1751be9a926521370cec6b904120d61c432a92754f4e1543faf01680) |
-| **Resolve & Payout (3:7 split)** | `bb8d01ca7f814db578adf182831d4b72d4ce006aa8c3330bad21b5e4b1f40469` | [Explorer Link](https://stellar.expert/explorer/testnet/tx/bb8d01ca7f814db578adf182831d4b72d4ce006aa8c3330bad21b5e4b1f40469) |
+### Active Role Configurations (Testnet):
+* **Landlord**: `GBFJINJRIR3JOEOZCNWLSF3B5VENKG2RAGVT4WY4J6AHW32UU2GF3TW3`
+* **Tenant**: `GB4TTRCTXZ3RNNB6COSWVFWXNPUYWVHX7GI63Z7OC2KYR4BS5W54WAHF`
+* **Arbitrator**: `GAKY5EWWOETAUQQZJPSW3OD5R2N46BE7G24PAHSHLGYLZGTMOLWE7BXT`
+* **Token Address**: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` (Native XLM SAC Contract)
 
 ---
 
 ## 4. How to Reproduce
 
-### Dependencies
-Ensure you have the Rust toolchain and Stellar CLI installed:
-*   Rust: `rustc 1.97.0` (with `wasm32-unknown-unknown` target)
-*   Stellar CLI: `stellar 27.0.0`
+### Prerequisites
+*   Rust: `rustc` with `wasm32-unknown-unknown` target.
+*   Stellar CLI: `stellar 27.0.0` or later.
+*   Node.js: `v20` or later.
 
-### Build
-To compile the smart contracts:
-```bash
-stellar contract build
-```
+---
 
-### Test
-To run the automated contract unit and integration tests:
-```bash
-cargo test
-```
-
-### Local Deploy & Initialize
-To run a local deploy and initialization against a standalone quickstart network:
-1. Start your local Quickstart container.
-2. Deploy the WASM binaries:
+### Step 1: Smart Contracts Build & Test
+1. Compile the smart contracts:
    ```bash
-   ./scripts/deploy.sh local RENTSAFE_LOCAL
+   stellar contract build
    ```
-3. Initialize the contracts:
+2. Run the automated contract unit tests:
    ```bash
-   # Export role addresses
-   export RENTSAFE_LANDLORD_ADDR="GD..."
-   export RENTSAFE_TENANT_ADDR="GD..."
-   export RENTSAFE_ARBITRATOR_ADDR="GD..."
+   cargo test
+   ```
+
+---
+
+### Step 2: Deployment (Stellar Testnet)
+1. Deploy contracts and generate WASM build hashes:
+   ```bash
+   ./scripts/deploy.sh testnet RENTSAFE_TESTNET
+   ```
+2. Initialize and link dispute mechanisms on-chain:
+   ```bash
+   export RENTSAFE_LANDLORD_ADDR="GBFJINJRIR3JOEOZCNWLSF3B5VENKG2RAGVT4WY4J6AHW32UU2GF3TW3"
+   export RENTSAFE_TENANT_ADDR="GB4TTRCTXZ3RNNB6COSWVFWXNPUYWVHX7GI63Z7OC2KYR4BS5W54WAHF"
+   export RENTSAFE_ARBITRATOR_ADDR="GAKY5EWWOETAUQQZJPSW3OD5R2N46BE7G24PAHSHLGYLZGTMOLWE7BXT"
    
-   ./scripts/initialize.sh local
+   python3 scripts/initialize.py testnet
    ```
+
+---
+
+### Step 3: Frontend Client Integration
+The Next.js client is optimized for production-grade dynamic browser actions:
+1. Install dependencies:
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+2. Run the unit test suite:
+   ```bash
+   npm run test
+   ```
+3. Run the Next.js development server:
+   ```bash
+   npm run dev
+   ```
+4. Compile the static application build:
+   ```bash
+   npm run build
+   ```
+
+---
+
+## 5. Architecture Notes
+
+### Direct RPC Reads (Testnet/MVP Phase)
+To keep the application highly decentralized, serverless, and direct, we read contract states and discover user agreements by querying events (`getEvents`) directly from the Soroban RPC endpoint. This removes any database sync lags and indexer dependency.
+
+### Scaling & Swap Path (Production Phase)
+If platform traffic scales significantly, query volume increases, or advanced search features (such as searching by landlord name/metadata) are needed, we can swap the service layer implementation (`src/services/chain/agreementService.ts`) for an indexer-backed API client (e.g. built using Node.js + Express + MongoDB/PostgreSQL). Because all widgets, pages, and timelines interface with the service and hook abstractions rather than calling the Soroban RPC directly, this database integration will require zero changes to component layouts.
+

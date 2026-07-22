@@ -69,7 +69,7 @@ export function useEscrowContract() {
   const connectWallet = async () => {
     try {
       setConnecting(true);
-      initializeWalletsKit();
+      await initializeWalletsKit();
       const res = await StellarWalletsKit.authModal();
       if (res && res.address) {
         setAddress(res.address);
