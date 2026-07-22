@@ -22,10 +22,8 @@ function LandingPage() {
           </div>
           
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-[#585f6c]">
-            <a className="text-[#000000] border-b-2 border-[#000000] pb-1 hover:text-[#000000] transition-colors" href="#">Product</a>
-            <a className="hover:text-[#000000] transition-colors" href="#">How it works</a>
-            <a className="hover:text-[#000000] transition-colors" href="#">Pricing</a>
-            <a className="hover:text-[#000000] transition-colors" href="#">Docs</a>
+            <a className="hover:text-[#000000] transition-colors" href="#product">Product</a>
+            <a className="hover:text-[#000000] transition-colors" href="#how-it-works">How it works</a>
           </nav>
           
           <div className="flex items-center gap-3">
@@ -79,7 +77,7 @@ function LandingPage() {
               </button>
             )}
             <a 
-              href="#"
+              href="#how-it-works"
               className="border border-[#c4c7c7] text-[#000000] px-6 py-3.5 rounded-xl font-bold text-sm hover:bg-[#eeeeee] transition-colors"
             >
               See How It Works
@@ -135,7 +133,7 @@ function LandingPage() {
         </section>
 
         {/* Features Section */}
-        <section className="px-6 py-16 max-w-6xl mx-auto">
+        <section id="product" className="px-6 py-16 max-w-6xl mx-auto scroll-mt-20">
           <h2 className="text-center text-2xl font-bold text-[#000000] mb-12 tracking-tight">Why RentSafe</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
@@ -164,6 +162,37 @@ function LandingPage() {
               </div>
               <h3 className="text-sm font-bold text-[#000000] mb-2">Automated Payouts</h3>
               <p className="text-xs text-[#585f6c] leading-relaxed">Safe split release at lease end based on direct mutual consensus or arbitration.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* How It Works Section */}
+        <section id="how-it-works" className="px-6 py-16 max-w-6xl mx-auto border-t border-[#e2e2e2] scroll-mt-20">
+          <h2 className="text-center text-2xl font-bold text-[#000000] mb-12 tracking-tight">How It Works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            {/* Step 1 */}
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm mb-4">1</div>
+              <h3 className="text-sm font-bold text-[#000000] mb-2">Create Agreement</h3>
+              <p className="text-xs text-[#585f6c] leading-relaxed max-w-xs">
+                Landlord or Tenant initializes the agreement conditions and deposit details on RentSafe.
+              </p>
+            </div>
+            {/* Step 2 */}
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm mb-4">2</div>
+              <h3 className="text-sm font-bold text-[#000000] mb-2">Lock Deposit</h3>
+              <p className="text-xs text-[#585f6c] leading-relaxed max-w-xs">
+                The Tenant locks the deposit securely into the shared Soroban escrow contract using Freighter or another Stellar wallet.
+              </p>
+            </div>
+            {/* Step 3 */}
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm mb-4">3</div>
+              <h3 className="text-sm font-bold text-[#000000] mb-2">Automated Settlement</h3>
+              <p className="text-xs text-[#585f6c] leading-relaxed max-w-xs">
+                Funds are released automatically at lease end based on mutual sign-off, or resolved via decentralized arbitration if a dispute is raised.
+              </p>
             </div>
           </div>
         </section>
@@ -212,18 +241,17 @@ function LandingPage() {
             <p className="text-xs text-[#585f6c]">© 2026 RentSafe. Decentralized security for modern living.</p>
           </div>
           <div>
-            <h4 className="text-xs font-bold mb-3 uppercase tracking-wider text-[#000000]">Product</h4>
+            <h4 className="text-xs font-bold mb-3 uppercase tracking-wider text-[#000000]">Legal</h4>
             <ul className="space-y-2 text-xs text-[#585f6c]">
-              <li><a className="hover:underline" href="#">Terms & Conditions</a></li>
-              <li><a className="hover:underline" href="#">Privacy Policy</a></li>
+              <li><Link className="hover:underline" href="/terms">Terms of Service</Link></li>
+              <li><Link className="hover:underline" href="/privacy">Privacy Policy</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="text-xs font-bold mb-3 uppercase tracking-wider text-[#000000]">Connect</h4>
+            <h4 className="text-xs font-bold mb-3 uppercase tracking-wider text-[#000000]">Source</h4>
             <ul className="space-y-2 text-xs text-[#585f6c]">
-              <li><a className="hover:underline" href="#">Twitter</a></li>
-              <li><a className="hover:underline" href="#">Discord</a></li>
-              <li><a className="hover:underline" href="#">GitHub</a></li>
+              <li><a className="hover:underline" href="https://github.com/aniCtrl" target="_blank" rel="noopener noreferrer">GitHub Profile</a></li>
+              <li><a className="hover:underline" href="https://github.com/aniCtrl/rentsafe" target="_blank" rel="noopener noreferrer">View Source</a></li>
             </ul>
           </div>
         </div>

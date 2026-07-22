@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { AgreementRecord } from '@/lib/rentsafe';
 
 const memoryStorage = new Map<string, string>();
 
@@ -38,20 +39,10 @@ export interface TransactionRecord {
   status: TxStatus;
   timestamp: number;
   description: string;
+  agreementId?: string;
 }
 
-export interface EscrowInfo {
-  address: string;
-  landlord: string;
-  tenant: string;
-  arbitrator: string;
-  token: string;
-  amount: bigint;
-  state: number;
-  disputeContract: string;
-  lockedBalance: string;
-  proposedBy?: string;
-}
+export type EscrowInfo = AgreementRecord;
 
 interface AppState {
   address: string;
@@ -73,8 +64,8 @@ interface AppState {
   resetSession: () => void;
 
   addTransaction: (tx: Omit<TransactionRecord, 'timestamp'>) => void;
-  updateTransactionStatus: (id: string, status: TxStatus, hash?: string) => void;
-  clearTransactions: () => void;
+  updateTransactionStatus: (id: string, status: TxStatus, hash?: string, patch?: Partial<TransactionRecord>) => void;
+  clearTransactions: (agreementId?: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -96,24 +87,34 @@ export const useAppStore = create<AppState>()(
       setEscrowId: (escrowId) => set({ escrowId }),
       setEscrowInfo: (escrowInfo) => set({ escrowInfo }),
       setLoadingEscrow: (loadingEscrow) => set({ loadingEscrow }),
-      resetSession: () => set({ address: '', balance: '0.00', walletId: '' }),
+      resetSession: () =>
+        set({
+          address: '',
+          balance: '0.00',
+          walletId: '',
+          escrowId: '',
+          escrowInfo: null,
+          transactions: [],
+        }),
 
       addTransaction: (tx) =>
         set((state) => ({
-          transactions: [
-            { ...tx, timestamp: Date.now() },
-            ...state.transactions.slice(0, 19), // Limit to 20 recent txs
-          ],
+          transactions: [{ ...tx, timestamp: Date.now() }, ...state.transactions.slice(0, 49)],
         })),
 
-      updateTransactionStatus: (id, status, hash) =>
+      updateTransactionStatus: (id, status, hash, patch) =>
         set((state) => ({
           transactions: state.transactions.map((tx) =>
-            tx.id === id ? { ...tx, status, ...(hash ? { hash } : {}) } : tx
+            tx.id === id ? { ...tx, status, ...(hash ? { hash } : {}), ...(patch ?? {}) } : tx,
           ),
         })),
 
-      clearTransactions: () => set({ transactions: [] }),
+      clearTransactions: (agreementId) =>
+        set((state) => ({
+          transactions: agreementId
+            ? state.transactions.filter((tx) => tx.agreementId !== agreementId)
+            : [],
+        })),
     }),
     {
       name: 'rentsafe-app-store',
@@ -125,6 +126,6 @@ export const useAppStore = create<AppState>()(
         walletId: state.walletId,
         escrowId: state.escrowId,
       }),
-    }
-  )
+    },
+  ),
 );

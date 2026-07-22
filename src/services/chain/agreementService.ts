@@ -1,396 +1,249 @@
-import { server, NATIVE_XLM_ID, readContractView } from '@/lib/stellar';
-import { ContractService } from '../contractService';
-import { EscrowInfo } from '@/store/useAppStore';
-import { getKnownEscrowIds } from '@/lib/knownEscrows';
 import { scValToNative } from '@stellar/stellar-sdk';
+import { DEFAULT_DISPUTE_ID, DEFAULT_ESCROW_ID, server } from '@/lib/stellar';
+import {
+  AgreementRecord,
+  DisputeRecord,
+  formatStroopsToXlm,
+  hasLockedFunds,
+} from '@/lib/rentsafe';
+import { ContractService } from '../contractService';
 
-/**
- * ARCHITECTURE NOTES:
- * Direct RPC reads from Soroban RPC (via getEvents and contract simulation) are chosen here for the testnet/MVP phase.
- * This removes any external database or indexer dependencies, allowing the frontend to be fully serverless and decentralized.
- * 
- * Future Swap Path to indexed backend:
- * When scaling to production with a high volume of agreements, complex multi-user analytics, or full-text query requirements,
- * this service layer can be modified to call a centralized REST/GraphQL indexer (e.g. Node.js + Express + MongoDB)
- * without modifying any React component markup or hook interface.
- */
-
-// Helper to safely convert BigInt/number to standard XLM string
-const formatStroopsToXlm = (stroops: bigint | number | string) => {
-  return (Number(stroops) / 10000000).toFixed(2);
-};
-
-/** Full platform-wide statistics derived from on-chain events and contract state reads. */
 export interface PlatformStats {
-  /** Total XLM locked across all contracts in states Funded/Active/SettlementRequested/Disputed (1-4). */
   tvl: string;
-  /** Total number of escrow contracts discovered via event scan. */
   totalContractsCount: number;
-  /** Contracts currently in states 1-4 (funds still locked). */
   activeContractsCount: number;
-  /** Contracts in state 5 (Resolved) or 6 (Closed). */
   resolvedContractsCount: number;
-  /** Percentage of all contracts that are currently in a Disputed state (state 4). */
   disputeRate: string;
-  /** Landlord share of historical deposit payouts (%). Defaults to 4 when no payout data exists. */
   depositSplitLandlordPct: number;
-  /** Tenant share of historical deposit payouts (%). Defaults to 96 when no payout data exists. */
   depositSplitTenantPct: number;
-  /**
-   * Funded amounts bucketed into 5 equal ledger-range slices across a ~60,000-ledger (≈3-day) window.
-   * Labels oldest → newest: ["3d", "2d", "1.5d", "1d", "Live"].
-   * `pct` is the bucket's share of the largest bucket (min 5%), useful for proportional bar heights.
-   */
   tvlHistory: { label: string; amountXlm: number; pct: number }[];
-  /** Unix timestamp (ms) when this snapshot was computed. */
   lastUpdated: number;
 }
 
+const HISTORY_LABELS = ['3d', '2d', '1.5d', '1d', 'Live'];
+
 export class AgreementChainService {
-  /**
-   * Scans ledger event history to discover all escrow contracts where the user address is a participant (tenant or landlord).
-   */
-  static async discoverEscrowContractIds(userAddress: string): Promise<string[]> {
-    if (!userAddress) return [];
+  static async fetchAllAgreements(): Promise<AgreementRecord[]> {
+    const ids = await ContractService.getAgreementIds();
+    const agreements = await Promise.all(
+      ids.map(async (agreementId) => {
+        try {
+          return await ContractService.getAgreementDetails(agreementId);
+        } catch (error) {
+          console.error(`Failed to fetch agreement ${agreementId}:`, error);
+          return null;
+        }
+      }),
+    );
 
-    const discoveredIds = new Set<string>();
+    return agreements.filter((agreement): agreement is AgreementRecord => agreement !== null);
+  }
 
-    // ─── Source 1: localStorage (immediately available, created by the wizard) ───
-    const knownLocal = getKnownEscrowIds(userAddress);
-    for (const cid of knownLocal) discoveredIds.add(cid);
+  static async fetchAgreement(agreementId: number | string): Promise<AgreementRecord> {
+    return ContractService.getAgreementDetails(agreementId);
+  }
 
-    // ─── Source 2: On-chain event scan (discovers contracts from other sessions/devices) ───
+  static async fetchAgreementsForWallet(walletAddress: string): Promise<AgreementRecord[]> {
+    if (!walletAddress) return [];
+
+    const agreements = await this.fetchAllAgreements();
+    const wallet = walletAddress.toLowerCase();
+
+    return agreements
+      .filter(
+        (agreement) =>
+          agreement.landlord.toLowerCase() === wallet ||
+          agreement.tenant.toLowerCase() === wallet,
+      )
+      .sort((a, b) => b.agreementId - a.agreementId);
+  }
+
+  static async fetchAgreementDispute(agreementId: number | string): Promise<DisputeRecord | null> {
+    return ContractService.getDisputeByAgreement(agreementId);
+  }
+
+  static async fetchAllDisputes(): Promise<DisputeRecord[]> {
+    const ids = await ContractService.getDisputeIds();
+    const latestLedger = await server.getLatestLedger();
+    const startLedger = Math.max(1, latestLedger.sequence - 60000);
+
+    type ContractEventRecord = {
+      topic?: unknown[];
+      topics?: unknown[];
+      txHash?: string;
+      tx_hash?: string;
+      transactionHash?: string;
+    };
+
+    let resolvedTxHashes = new Map<number, string>();
     try {
-      const latestLedger = await server.getLatestLedger();
-      // Look back ~60,000 ledgers (~3 days of testnet history)
-      const startLedger = Math.max(1, latestLedger.sequence - 60000);
-
-      // Fetch all 'contract' type events — we filter by topic in JS below.
-      // NOTE: Do NOT pass topic ScVal filters via the RPC filter array. The RPC
-      // topic filter uses exact XDR byte matching that breaks across SDK versions.
-      // Instead we fetch broadly and filter in-process.
-      const response = await (server as any).getEvents({
+      const response = await (server as unknown as {
+        getEvents: (args: {
+          startLedger: number;
+          filters: Array<{ type: string; contractIds: string[] }>;
+          limit: number;
+        }) => Promise<{ events?: ContractEventRecord[] }>;
+      }).getEvents({
         startLedger,
-        filters: [{ type: 'contract' }],
-        limit: 200
+        filters: [{ type: 'contract', contractIds: [DEFAULT_DISPUTE_ID] }],
+        limit: 200,
       });
 
-      for (const evt of response.events) {
-        try {
-          // Only process escrow initialization events (topics: ['escrow', 'init'])
-          const topics: any[] = evt.topic || evt.topics || [];
-          const topicStrings = topics.map((t: any) => {
-            try { return String(scValToNative(t)); } catch { return ''; }
-          });
-          if (topicStrings[0] !== 'escrow' || topicStrings[1] !== 'init') continue;
-
-          // Parse event value: (landlord, tenant, arbitrator, token, amount)
-          const rawVal = scValToNative(evt.value);
-          if (Array.isArray(rawVal) && rawVal.length >= 2) {
-            const landlord = String(rawVal[0]);
-            const tenant = String(rawVal[1]);
-            if (
-              landlord.toUpperCase() === userAddress.toUpperCase() ||
-              tenant.toUpperCase() === userAddress.toUpperCase()
-            ) {
-              if (evt.contractId) discoveredIds.add(String(evt.contractId));
-            }
-          }
-        } catch (err) {
-          // Skip unparseable events silently
-        }
-      }
+      resolvedTxHashes = new Map(
+        (response.events ?? [])
+          .map((event) => {
+            const topics = (event.topic || event.topics || []).map((topic) => {
+              try {
+                return scValToNative(topic as Parameters<typeof scValToNative>[0]);
+              } catch {
+                return null;
+              }
+            });
+            const action = String(topics[0] ?? '');
+            const disputeId = Number(topics[1] ?? 0);
+            const txHash = event.txHash || event.tx_hash || event.transactionHash || '';
+            return action === 'dispute_resolved' && disputeId > 0 && txHash ? [disputeId, txHash] : null;
+          })
+          .filter(Boolean) as Array<[number, string]>,
+      );
     } catch (error) {
-      // Event scan failure is non-fatal — localStorage already seeded the list
-      console.warn('Event scan failed (non-fatal):', error);
+      console.warn('Unable to backfill dispute resolution tx hashes from events:', error);
     }
 
-    return Array.from(discoveredIds);
-  }
-
-  /**
-   * Fetches full on-chain details and current balance for a list of contract IDs.
-   */
-  static async fetchAgreementsForWallet(userAddress: string): Promise<EscrowInfo[]> {
-    if (!userAddress) return [];
-    const contractIds = await this.discoverEscrowContractIds(userAddress);
-    const agreements: EscrowInfo[] = [];
-
-    for (const cid of contractIds) {
-      try {
-        const details = await ContractService.getEscrowDetails(cid);
-        
-        // Fetch current locked balance of the contract
-        let lockedBalance = '0.00';
+    const disputes = await Promise.all(
+      ids.map(async (disputeId) => {
         try {
-          const balVal = await readContractView(NATIVE_XLM_ID, 'balance', [cid]);
-          lockedBalance = formatStroopsToXlm(balVal);
-        } catch (balErr) {
-          console.error(`Failed to read balance for escrow contract ${cid}:`, balErr);
+          const dispute = await ContractService.getDisputeDetails(disputeId);
+          const resolutionTxHash = resolvedTxHashes.get(disputeId);
+          return resolutionTxHash ? { ...dispute, resolutionTxHash } : dispute;
+        } catch (error) {
+          console.error(`Failed to fetch dispute ${disputeId}:`, error);
+          return null;
         }
+      }),
+    );
 
-        // Only include agreements where the user actually matches one of the roles
-        if (
-          details.landlord.toLowerCase() === userAddress.toLowerCase() ||
-          details.tenant.toLowerCase() === userAddress.toLowerCase() ||
-          details.arbitrator.toLowerCase() === userAddress.toLowerCase()
-        ) {
-          agreements.push({
-            address: details.address,
-            landlord: details.landlord,
-            tenant: details.tenant,
-            arbitrator: details.arbitrator,
-            token: details.token,
-            amount: details.amount,
-            state: details.state,
-            disputeContract: details.disputeContract,
-            lockedBalance,
-            proposedBy: details.proposedBy
-          });
-        }
-      } catch (err) {
-        console.error(`Failed to fetch live escrow details for ${cid}:`, err);
-      }
-    }
-
-    return agreements;
+    return disputes.filter((dispute): dispute is DisputeRecord => dispute !== null).sort((a, b) => b.disputeId - a.disputeId);
   }
 
-  /**
-   * Computes live summary metrics (TVL, Active Counts, Pending Payouts) from real contract states.
-   */
-  static async fetchLiveDashboardMetrics(userAddress: string) {
-    if (!userAddress) {
+  static async fetchLiveDashboardMetrics(walletAddress: string) {
+    if (!walletAddress) {
       return {
         tvl: '0.00',
         activeCount: 0,
-        pendingCount: '0.00'
+        pendingCount: '0.00',
       };
     }
 
-    const agreements = await this.fetchAgreementsForWallet(userAddress);
-    
+    const agreements = await this.fetchAgreementsForWallet(walletAddress);
+
     let tvlStroops = BigInt(0);
     let pendingStroops = BigInt(0);
     let activeCount = 0;
 
-    for (const agr of agreements) {
-      const state = agr.state;
-      const amt = agr.amount;
-
-      // TVL sums locked funds in Funded (1), Active (2), SettlementRequested (3), or Disputed (4) states
-      if (state >= 1 && state <= 4) {
-        tvlStroops += amt;
+    for (const agreement of agreements) {
+      if (hasLockedFunds(agreement.status)) {
+        tvlStroops += agreement.depositAmount;
       }
 
-      // Active count represents agreements currently active (state = 2)
-      if (state === 2) {
-        activeCount++;
+      if (agreement.status === 2) {
+        activeCount += 1;
       }
 
-      // Pending Returns represent contracts in SettlementRequested (3)
-      if (state === 3) {
-        pendingStroops += amt;
+      if ([3, 4, 5, 6, 7, 8].includes(agreement.status)) {
+        pendingStroops += agreement.depositAmount;
       }
     }
 
     return {
       tvl: formatStroopsToXlm(tvlStroops),
       activeCount,
-      pendingCount: formatStroopsToXlm(pendingStroops)
+      pendingCount: formatStroopsToXlm(pendingStroops),
     };
   }
 
-  /**
-   * Fetches global platform-wide statistics from discoverable contract instances.
-   *
-   * Single broad event scan (limit: 200) collects:
-   *   - escrow:init    → contract IDs for the full discovery set
-   *   - escrow:funded  → [tenant_address, amount_i128] — amounts bucketed by ledger for tvlHistory
-   *   - escrow:set_acc → [landlord_share_i128, tenant_share_i128] — payout split accumulators
-   *   - escrow:resolved→ same structure — payout split accumulators
-   *
-   * After the scan, up to 50 unique contracts are queried for current state to compute
-   * activeContractsCount, resolvedContractsCount, TVL, and disputeRate.
-   */
   static async fetchPlatformStats(): Promise<PlatformStats> {
-    // Safe defaults returned on any unrecoverable error
     const safeDefaults: PlatformStats = {
       tvl: '0.00',
-      totalContractsCount: 0,
+      totalContractsCount: 1,
       activeContractsCount: 0,
       resolvedContractsCount: 0,
       disputeRate: '0.00',
-      depositSplitLandlordPct: 4,
-      depositSplitTenantPct: 96,
-      tvlHistory: [
-        { label: '3d',   amountXlm: 0, pct: 5 },
-        { label: '2d',   amountXlm: 0, pct: 5 },
-        { label: '1.5d', amountXlm: 0, pct: 5 },
-        { label: '1d',   amountXlm: 0, pct: 5 },
-        { label: 'Live', amountXlm: 0, pct: 5 },
-      ],
+      depositSplitLandlordPct: 0,
+      depositSplitTenantPct: 100,
+      tvlHistory: HISTORY_LABELS.map((label) => ({ label, amountXlm: 0, pct: 5 })),
       lastUpdated: Date.now(),
     };
 
     try {
-      // ── 1. Determine ledger window ──────────────────────────────────────────
-      const latestLedger = await server.getLatestLedger();
-      const startLedger  = Math.max(1, latestLedger.sequence - 60000);
+      const agreements = await this.fetchAllAgreements();
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const windowSeconds = Math.floor(3.5 * 24 * 60 * 60);
+      const bucketSizeSeconds = Math.floor(windowSeconds / HISTORY_LABELS.length);
 
-      // 5 equal buckets across a 60,000-ledger window
-      const bucketSize = Math.floor(60000 / 5); // 12,000 ledgers per bucket
-
-      // ── 2. Broad event scan ─────────────────────────────────────────────────
-      const response = await (server as any).getEvents({
-        startLedger,
-        filters: [{ type: 'contract' }],
-        limit: 200,
-      });
-
-      const uniqueCids         = new Set<string>();
-      const tvlBuckets: bigint[]  = [BigInt(0), BigInt(0), BigInt(0), BigInt(0), BigInt(0)];
-      let   totalLandlordStroops   = BigInt(0);
-      let   totalTenantStroops     = BigInt(0);
-
-      for (const evt of response.events) {
-        try {
-          const topics: any[] = evt.topic || evt.topics || [];
-          const topicStrings  = topics.map((t: any) => {
-            try { return String(scValToNative(t)); } catch { return ''; }
-          });
-
-          const ns     = topicStrings[0]; // should be 'escrow'
-          const action = topicStrings[1]; // init | funded | set_acc | resolved | …
-          if (ns !== 'escrow') continue;
-
-          // ── escrow:init — discover contract IDs ──────────────────────────
-          if (action === 'init') {
-            if (evt.contractId) uniqueCids.add(String(evt.contractId));
-            continue;
-          }
-
-          // ── escrow:funded — [tenant_address, amount_i128] ────────────────
-          if (action === 'funded') {
-            const rawVal = scValToNative(evt.value);
-            if (Array.isArray(rawVal) && rawVal.length >= 2) {
-              const amountRaw = rawVal[1];
-              const amount    = BigInt(
-                typeof amountRaw === 'bigint' ? amountRaw : String(amountRaw)
-              );
-              // Bucket index clamped to [0, 4]
-              const bucketIdx = Math.min(
-                4,
-                Math.floor((evt.ledger - startLedger) / bucketSize)
-              );
-              tvlBuckets[bucketIdx] += amount;
-            }
-            continue;
-          }
-
-          // ── escrow:set_acc / escrow:resolved — [landlord_share, tenant_share] ──
-          if (action === 'set_acc' || action === 'resolved') {
-            const rawVal = scValToNative(evt.value);
-            if (Array.isArray(rawVal) && rawVal.length >= 2) {
-              const lRaw = rawVal[0];
-              const tRaw = rawVal[1];
-              totalLandlordStroops += BigInt(
-                typeof lRaw === 'bigint' ? lRaw : String(lRaw)
-              );
-              totalTenantStroops += BigInt(
-                typeof tRaw === 'bigint' ? tRaw : String(tRaw)
-              );
-            }
-            continue;
-          }
-        } catch {
-          // Skip any unparseable event silently
-        }
-      }
-
-      // ── 3. Per-contract state queries (max 50 to avoid timeout) ───────────
-      //
-      // State enum: Created=0, Funded=1, Active=2, SettlementRequested=3,
-      //             Disputed=4, Resolved=5, Closed=6
-      const cidsToQuery = Array.from(uniqueCids).slice(0, 50);
-
-      let globalTvlStroops      = BigInt(0);
-      let activeContractsCount  = 0;
+      let tvlStroops = BigInt(0);
+      let activeContractsCount = 0;
       let resolvedContractsCount = 0;
-      let disputedContractsCount = 0;
+      let disputedCount = 0;
+      let totalLandlordResolved = BigInt(0);
+      let totalTenantResolved = BigInt(0);
+      const buckets = HISTORY_LABELS.map(() => BigInt(0));
 
-      for (const cid of cidsToQuery) {
-        try {
-          const details = await ContractService.getEscrowDetails(cid);
-          const { state, amount } = details;
+      for (const agreement of agreements) {
+        if (hasLockedFunds(agreement.status)) {
+          tvlStroops += agreement.depositAmount;
+          activeContractsCount += 1;
+        }
 
-          if (state >= 1 && state <= 4) {
-            globalTvlStroops += amount;
-            activeContractsCount++;
-          }
-          if (state === 5 || state === 6) {
-            resolvedContractsCount++;
-          }
-          if (state === 4) {
-            disputedContractsCount++;
-          }
-        } catch (err) {
-          console.error(`Failed to scan contract ${cid} for platform stats:`, err);
+        if (agreement.status === 9 || agreement.status === 10) {
+          resolvedContractsCount += 1;
+        }
+
+        if (agreement.status === 7 || agreement.status === 8) {
+          disputedCount += 1;
+        }
+
+        if (agreement.hasResolution) {
+          totalLandlordResolved += agreement.resolutionLandlordAmount;
+          totalTenantResolved += agreement.resolutionTenantAmount;
+        }
+
+        if (agreement.fundedAt > 0 && agreement.fundedAt >= nowSeconds - windowSeconds) {
+          const elapsed = Math.max(0, agreement.fundedAt - (nowSeconds - windowSeconds));
+          const bucketIndex = Math.min(HISTORY_LABELS.length - 1, Math.floor(elapsed / bucketSizeSeconds));
+          buckets[bucketIndex] += agreement.depositAmount;
         }
       }
 
-      const totalContractsCount = uniqueCids.size;
-
-      // ── 4. Dispute rate ────────────────────────────────────────────────────
-      const disputeRate =
-        totalContractsCount > 0
-          ? ((disputedContractsCount / totalContractsCount) * 100).toFixed(2)
-          : '0.00';
-
-      // ── 5. Deposit-split percentages ───────────────────────────────────────
-      const totalPayouts = totalLandlordStroops + totalTenantStroops;
-      let depositSplitLandlordPct: number;
-      let depositSplitTenantPct: number;
-
-      if (totalPayouts > BigInt(0)) {
-        depositSplitLandlordPct = Math.round(
-          Number((totalLandlordStroops * BigInt(100)) / totalPayouts)
-        );
-        depositSplitTenantPct = 100 - depositSplitLandlordPct;
-      } else {
-        depositSplitLandlordPct = 4;
-        depositSplitTenantPct   = 96;
-      }
-
-      // ── 6. TVL history buckets ─────────────────────────────────────────────
-      const tvlLabels: string[] = ['3d', '2d', '1.5d', '1d', 'Live'];
-      const maxBucket = tvlBuckets.reduce(
-        (max, b) => (b > max ? b : max),
-        BigInt(0)
-      );
-      // Guard against all-zero buckets so we never divide by zero
+      const totalResolved = totalLandlordResolved + totalTenantResolved;
+      const depositSplitLandlordPct =
+        totalResolved > BigInt(0) ? Math.round(Number((totalLandlordResolved * BigInt(100)) / totalResolved)) : 0;
+      const depositSplitTenantPct = totalResolved > BigInt(0) ? 100 - depositSplitLandlordPct : 100;
+      const maxBucket = buckets.reduce((max, bucket) => (bucket > max ? bucket : max), BigInt(0));
       const divisor = maxBucket > BigInt(0) ? maxBucket : BigInt(1);
 
-      const tvlHistory = tvlBuckets.map((bucket, i) => ({
-        label:     tvlLabels[i],
-        amountXlm: Number(bucket) / 10_000_000,
-        pct:       Math.max(5, Math.round(Number(bucket * BigInt(100) / divisor))),
-      }));
-
       return {
-        tvl: formatStroopsToXlm(globalTvlStroops),
-        totalContractsCount,
+        tvl: formatStroopsToXlm(tvlStroops),
+        totalContractsCount: 1,
         activeContractsCount,
         resolvedContractsCount,
-        disputeRate,
+        disputeRate: agreements.length > 0 ? ((disputedCount / agreements.length) * 100).toFixed(2) : '0.00',
         depositSplitLandlordPct,
         depositSplitTenantPct,
-        tvlHistory,
+        tvlHistory: buckets.map((bucket, index) => ({
+          label: HISTORY_LABELS[index],
+          amountXlm: Number(bucket) / 10000000,
+          pct: Math.max(5, Math.round(Number((bucket * BigInt(100)) / divisor))),
+        })),
         lastUpdated: Date.now(),
       };
     } catch (error) {
       console.error('Error fetching global platform statistics:', error);
-      return { ...safeDefaults, lastUpdated: Date.now() };
+      return safeDefaults;
     }
+  }
+
+  static getSharedContractId() {
+    return DEFAULT_ESCROW_ID;
   }
 }

@@ -1,10 +1,14 @@
 'use client';
 
 import React from 'react';
-import { useAppStore, TransactionRecord } from '@/store/useAppStore';
+import { useAppStore } from '@/store/useAppStore';
 
-export default function TransactionCenter() {
+export default function TransactionCenter({ agreementId }: { agreementId?: string | number | null }) {
   const { transactions, clearTransactions } = useAppStore();
+  const scopeKey = agreementId != null ? String(agreementId) : null;
+  const scopedTransactions = scopeKey
+    ? transactions.filter((transaction) => transaction.agreementId === scopeKey)
+    : transactions;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -41,11 +45,11 @@ export default function TransactionCenter() {
       <div className="flex justify-between items-center mb-6 border-b border-[#e2e2e2] pb-3">
         <h4 className="text-sm font-bold text-[#000000] flex items-center gap-1.5">
           <span className="material-symbols-outlined text-lg">receipt_long</span>
-          <span>Transaction Console</span>
+          <span>This Session&apos;s Transactions</span>
         </h4>
-        {transactions.length > 0 && (
-          <button 
-            onClick={clearTransactions}
+        {scopedTransactions.length > 0 && (
+          <button
+            onClick={() => clearTransactions(scopeKey ?? undefined)}
             className="text-[10px] font-bold text-[#ba1a1a] uppercase tracking-wider hover:underline"
           >
             Clear Log
@@ -53,17 +57,14 @@ export default function TransactionCenter() {
         )}
       </div>
 
-      {transactions.length === 0 ? (
+      {scopedTransactions.length === 0 ? (
         <div className="text-center py-8 text-xs text-[#585f6c]">
-          No local transactions submitted in this session.
+          {scopeKey ? 'No signed transactions submitted in this session for this agreement.' : 'No signed transactions submitted in this session yet.'}
         </div>
       ) : (
         <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
-          {transactions.map((tx) => (
-            <div 
-              key={tx.id} 
-              className={`p-4 rounded-xl border text-xs flex flex-col gap-2 ${getStatusColor(tx.status)}`}
-            >
+          {scopedTransactions.map((tx) => (
+            <div key={tx.id} className={`p-4 rounded-xl border text-xs flex flex-col gap-2 ${getStatusColor(tx.status)}`}>
               <div className="flex justify-between items-center">
                 <span className="font-bold uppercase tracking-wider text-[10px]">{tx.type}</span>
                 <span className="flex items-center gap-1 font-semibold text-[10px]">
@@ -73,13 +74,13 @@ export default function TransactionCenter() {
                   <span className="uppercase">{tx.status}</span>
                 </span>
               </div>
-              
+
               <p className="text-slate-700">{tx.description}</p>
-              
+
               {tx.hash && (
-                <div className="flex justify-between items-center pt-2 border-t border-[#c4c7c7]/20 font-mono text-[10px]">
+                <div className="flex justify-between items-center pt-2 border-t border-[#c4c7c7]/20 font-mono text-[10px] gap-2">
                   <span className="truncate max-w-[200px]">Hash: {tx.hash}</span>
-                  <a 
+                  <a
                     href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
                     target="_blank"
                     rel="noreferrer"
@@ -88,15 +89,6 @@ export default function TransactionCenter() {
                     Explorer <span className="material-symbols-outlined text-[10px]">open_in_new</span>
                   </a>
                 </div>
-              )}
-
-              {tx.status === 'failed' && (
-                <button 
-                  onClick={() => alert('To retry, please re-submit the corresponding action from the contract console.')}
-                  className="mt-1 bg-black text-white py-1 px-3 rounded-lg text-[10px] font-bold self-start hover:opacity-90"
-                >
-                  Retry Action
-                </button>
               )}
             </div>
           ))}

@@ -29,78 +29,51 @@ def main():
     escrow_id = meta["escrow"]["address"]
     dispute_id = meta["dispute"]["address"]
 
-    # Gather role addresses
-    landlord = os.getenv("RENTSAFE_LANDLORD_ADDR") or meta.get("roles", {}).get("landlord")
-    tenant = os.getenv("RENTSAFE_TENANT_ADDR") or meta.get("roles", {}).get("tenant")
-    arbitrator = os.getenv("RENTSAFE_ARBITRATOR_ADDR") or meta.get("roles", {}).get("arbitrator")
+    # Gather roles
+    admin = os.getenv("RENTSAFE_PLATFORM_ADDRESS") or "GBKEWLPR74ZPGJV7PGQAEMMKUQ4N35JD4SC23CCHNKYZRKIQA7NSVMKT"
     token = os.getenv("RENTSAFE_TOKEN_ADDR") or "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC" # Native XLM SAC on testnet
-    amount = os.getenv("RENTSAFE_AMOUNT") or "100000000" # 10 XLM
-
-    if not landlord or not tenant or not arbitrator:
-        print("Error: Landlord, Tenant, and Arbitrator addresses must be specified.")
-        print("Please set RENTSAFE_LANDLORD_ADDR, RENTSAFE_TENANT_ADDR, and RENTSAFE_ARBITRATOR_ADDR.")
-        sys.exit(1)
 
     print("--------------------------------------------------")
     print(f"Initializing RentSafe Contracts on {network}")
     print(f"Escrow:     {escrow_id}")
     print(f"Dispute:    {dispute_id}")
-    print(f"Landlord:   {landlord}")
-    print(f"Tenant:     {tenant}")
-    print(f"Arbitrator: {arbitrator}")
+    print(f"Platform:   {admin}")
     print(f"Token:      {token}")
-    print(f"Amount:     {amount}")
     print("--------------------------------------------------")
 
-    # 1. Initialize Escrow
-    print("Invoking Escrow initialize()...")
-    init_escrow_tx = run_cmd([
-        "stellar", "contract", "invoke",
-        "--id", escrow_id,
-        "--source-account", "RENTSAFE_TESTNET",
-        "--network", network,
-        "--", "initialize",
-        "--landlord", landlord,
-        "--tenant", tenant,
-        "--arbitrator", arbitrator,
-        "--token", token,
-        "--amount", amount
-    ])
-
-    # 2. Initialize Dispute
+    # 1. Initialize Dispute
     print("Invoking Dispute initialize()...")
     init_dispute_tx = run_cmd([
         "stellar", "contract", "invoke",
         "--id", dispute_id,
-        "--source-account", "RENTSAFE_TESTNET",
+        "--source-account", "RENTSAFE_PLATFORM",
         "--network", network,
         "--", "initialize",
-        "--escrow_contract", escrow_id,
-        "--arbitrator", arbitrator
+        "--admin", admin,
+        "--escrow_contract", escrow_id
     ])
 
-    # 3. Link Dispute in Escrow
-    print("Invoking Escrow set_dispute_contract()...")
-    link_tx = run_cmd([
+    # 2. Initialize Escrow
+    print("Invoking Escrow initialize()...")
+    init_escrow_tx = run_cmd([
         "stellar", "contract", "invoke",
         "--id", escrow_id,
-        "--source-account", "RENTSAFE_ARBITRATOR",
+        "--source-account", "RENTSAFE_PLATFORM",
         "--network", network,
-        "--", "set_dispute_contract",
-        "--dispute_contract", dispute_id
+        "--", "initialize",
+        "--admin", admin,
+        "--dispute_contract", dispute_id,
+        "--asset", token
     ])
 
     # Save transaction details back to deployments file
     meta["roles"] = {
-        "deployer": "GBSJ6OLI3XRFWDWJJBW6C3H2EXKMFQQVFEKYNV6DHHGM5FHYJ3M7MM5Y",
-        "landlord": landlord,
-        "tenant": tenant,
-        "arbitrator": arbitrator
+        "admin": admin,
+        "asset": token
     }
     meta["interactions"] = {
-        "init_escrow_tx": init_escrow_tx,
         "init_dispute_tx": init_dispute_tx,
-        "link_tx": link_tx
+        "init_escrow_tx": init_escrow_tx
     }
 
     with open(metadata_path, "w") as f:
