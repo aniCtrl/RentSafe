@@ -139,9 +139,20 @@ function extractReturnValue(resultMetaXdr?: any) {
       meta = resultMetaXdr;
     }
 
+    // TransactionMeta is a union — only v3 contains sorobanMeta.
+    // Calling .v3() when the switch is not v3 throws "v3 not set".
+    const switchName: string = meta.switch?.()?.name ?? '';
+    if (switchName !== 'v3') return undefined;
+
     const sorobanMeta = meta.v3?.()?.sorobanMeta?.();
     const returnValue = sorobanMeta?.returnValue?.();
-    return returnValue ? scValToNative(returnValue as Parameters<typeof scValToNative>[0]) : undefined;
+    if (!returnValue) return undefined;
+
+    // scvVoid means the function returned () — treat as null, not an error.
+    const switchVal: string = (returnValue as any).switch?.()?.name ?? '';
+    if (switchVal === 'scvVoid') return null;
+
+    return scValToNative(returnValue as Parameters<typeof scValToNative>[0]);
   } catch (error) {
     console.error('Failed to extract Soroban return value from transaction metadata:', error);
     return undefined;
@@ -163,7 +174,8 @@ async function waitForTransaction(txHash: string) {
     }
 
     if (txResponse.status === 'FAILED') {
-      throw new Error(`Transaction failed: ${JSON.stringify(txResponse.resultXdr)}`);
+      const resultDetail = txResponse.resultXdr ?? JSON.stringify(txResponse);
+      throw new Error(`Transaction FAILED on-chain: ${resultDetail}`);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -181,7 +193,7 @@ export async function readContractView(contractId: string, method: string, args:
     const convertedArgs = convertArgsForMethod(method, args);
 
     const transaction = new TransactionBuilder(source, {
-      fee: '100',
+      fee: '10000',
       networkPassphrase: StellarNetworks.TESTNET,
     })
       .addOperation(contract.call(method, ...convertedArgs))
@@ -218,7 +230,7 @@ export async function writeContractMethodDetailed(
     const convertedArgs = convertArgsForMethod(method, args);
 
     let transaction = new TransactionBuilder(sourceAccount, {
-      fee: '100',
+      fee: '10000',
       networkPassphrase: StellarNetworks.TESTNET,
     })
       .addOperation(contract.call(method, ...convertedArgs))
@@ -238,7 +250,19 @@ export async function writeContractMethodDetailed(
     };
 
     if (submitResult.status === 'ERROR') {
-      throw new Error(`Transaction submission error: ${JSON.stringify(submitResult.errorResultXdr)}`);
+      // SDK v16+ — decode error details from extras.result_codes or errorResult.
+      const errDetail =
+        (submitResult as any).extras?.result_codes
+          ? JSON.stringify((submitResult as any).extras.result_codes)
+          : (submitResult as any).errorResult?.result?.().switch?.()?.name
+            ?? JSON.stringify(submitResult, null, 2);
+      console.error('sendTransaction ERROR response:', submitResult);
+      throw new Error(`Transaction submission failed: ${errDetail}`);
+    }
+
+    // SDK v16 returns PENDING on initial submission. DUPLICATE means already submitted.
+    if (submitResult.status !== 'PENDING' && submitResult.status !== 'DUPLICATE') {
+      console.warn('Unexpected sendTransaction status:', submitResult.status, submitResult);
     }
 
     const txHash = submitResult.hash;
