@@ -200,9 +200,12 @@ export async function readContractView(contractId: string, method: string, args:
       .setTimeout(30)
       .build();
 
-    const sim = (await server.simulateTransaction(transaction)) as unknown as { result?: { retval?: unknown } };
+    const sim = await server.simulateTransaction(transaction);
+    if (rpc.Api.isSimulationError(sim)) {
+      throw new Error(`Simulation error for ${method}: ${sim.error}`);
+    }
     if (sim.result?.retval) {
-      return scValToNative(sim.result.retval as Parameters<typeof scValToNative>[0]);
+      return scValToNative(sim.result?.retval);
     }
     throw new Error('No return value from simulation');
   } catch (error) {
@@ -289,3 +292,65 @@ export async function writeContractMethod(
   const result = await writeContractMethodDetailed(contractId, method, args, userAddress, options);
   return result.txHash;
 }
+
+/**
+ * Sends a direct XLM payment from `fromAddress` to `toAddress`.
+ * This is a standard Stellar payment operation, NOT a smart-contract call.
+ * Used for monthly rent transfers from tenant to landlord.
+ *
+ * @param fromAddress  Sender's Stellar G-address
+ * @param toAddress    Recipient's Stellar G-address
+ * @param amountStroops Amount in Stroops (1 XLM = 10,000,000 stroops)
+ * @returns txHash of the confirmed transaction
+ */
+export async function sendXlmTransfer(
+  fromAddress: string,
+  toAddress: string,
+  amountStroops: bigint,
+): Promise<string> {
+  const { Asset, Operation, Memo } = await import('@stellar/stellar-sdk');
+  await initializeWalletsKit('testnet');
+
+  const sourceAccount = await server.getAccount(fromAddress);
+
+  // Convert stroops to XLM string (7 decimal places)
+  const amountXlm = (Number(amountStroops) / 10_000_000).toFixed(7);
+
+  const transaction = new TransactionBuilder(sourceAccount, {
+    fee: '10000',
+    networkPassphrase: StellarNetworks.TESTNET,
+    memo: Memo.text('RentSafe monthly rent'),
+  })
+    .addOperation(
+      Operation.payment({
+        destination: toAddress,
+        asset: Asset.native(),
+        amount: amountXlm,
+      }),
+    )
+    .setTimeout(30)
+    .build();
+
+  const { StellarWalletsKit } = await import('@creit.tech/stellar-wallets-kit/sdk');
+  const { signedTxXdr } = await StellarWalletsKit.signTransaction(transaction.toXDR());
+
+  const finalTx = TransactionBuilder.fromXDR(signedTxXdr, StellarNetworks.TESTNET);
+  const submitResult = (await server.sendTransaction(finalTx)) as unknown as {
+    status: string;
+    hash: string;
+    errorResultXdr?: string;
+  };
+
+  if (submitResult.status === 'ERROR') {
+    const errDetail =
+      (submitResult as any).extras?.result_codes
+        ? JSON.stringify((submitResult as any).extras.result_codes)
+        : JSON.stringify(submitResult, null, 2);
+    throw new Error(`XLM transfer failed: ${errDetail}`);
+  }
+
+  const txHash = submitResult.hash;
+  await waitForTransaction(txHash);
+  return txHash;
+}
+
