@@ -8,6 +8,15 @@ import {
 } from '@/lib/rentsafe';
 import { ContractService } from '../contractService';
 
+export interface TvlBucket {
+  label: string;
+  amountXlm: number;
+  pct: number;
+  count: number;
+  fromTimestamp: number;
+  toTimestamp: number;
+}
+
 export interface PlatformStats {
   tvl: string;
   totalContractsCount: number;
@@ -16,11 +25,12 @@ export interface PlatformStats {
   disputeRate: string;
   depositSplitLandlordPct: number;
   depositSplitTenantPct: number;
-  tvlHistory: { label: string; amountXlm: number; pct: number }[];
+  tvlHistory: TvlBucket[];
+  timeWindowLabel: string;
   lastUpdated: number;
 }
 
-const HISTORY_LABELS = ['3d', '2d', '1.5d', '1d', 'Live'];
+const DEFAULT_HOURLY_LABELS = ['-12h', '-10h', '-8h', '-6h', '-4h', '-2h', 'Now'];
 
 export class AgreementChainService {
   static async fetchAllAgreements(): Promise<AgreementRecord[]> {
@@ -65,43 +75,29 @@ export class AgreementChainService {
   static async fetchAllDisputes(): Promise<DisputeRecord[]> {
     const ids = await ContractService.getDisputeIds();
     const latestLedger = await server.getLatestLedger();
-    const startLedger = Math.max(1, latestLedger.sequence - 60000);
+    const startLedger = Math.max(1, latestLedger.sequence - 15000);
 
-    type ContractEventRecord = {
-      topic?: unknown[];
-      topics?: unknown[];
-      txHash?: string;
-      tx_hash?: string;
-      transactionHash?: string;
-    };
-
-    let resolvedTxHashes = new Map<number, string>();
+    let resolvedTxHashes: Map<number, string> = new Map();
     try {
-      const response = await (server as unknown as {
-        getEvents: (args: {
-          startLedger: number;
-          filters: Array<{ type: string; contractIds: string[] }>;
-          limit: number;
-        }) => Promise<{ events?: ContractEventRecord[] }>;
-      }).getEvents({
+      const response = await server.getEvents({
         startLedger,
         filters: [{ type: 'contract', contractIds: [DEFAULT_DISPUTE_ID] }],
         limit: 200,
       });
 
       resolvedTxHashes = new Map(
-        (response.events ?? [])
+        response.events
           .map((event) => {
-            const topics = (event.topic || event.topics || []).map((topic) => {
+            const topics = event.topic.map((topic) => {
               try {
-                return scValToNative(topic as Parameters<typeof scValToNative>[0]);
+                return scValToNative(topic);
               } catch {
                 return null;
               }
             });
             const action = String(topics[0] ?? '');
             const disputeId = Number(topics[1] ?? 0);
-            const txHash = event.txHash || event.tx_hash || event.transactionHash || '';
+            const txHash = event.txHash || '';
             return action === 'dispute_resolved' && disputeId > 0 && txHash ? [disputeId, txHash] : null;
           })
           .filter(Boolean) as Array<[number, string]>,
@@ -171,15 +167,21 @@ export class AgreementChainService {
       disputeRate: '0.00',
       depositSplitLandlordPct: 0,
       depositSplitTenantPct: 100,
-      tvlHistory: HISTORY_LABELS.map((label) => ({ label, amountXlm: 0, pct: 5 })),
+      tvlHistory: DEFAULT_HOURLY_LABELS.map((label) => ({
+        label,
+        amountXlm: 0,
+        pct: 0,
+        count: 0,
+        fromTimestamp: 0,
+        toTimestamp: 0,
+      })),
+      timeWindowLabel: '12 Hours',
       lastUpdated: Date.now(),
     };
 
     try {
       const agreements = await this.fetchAllAgreements();
       const nowSeconds = Math.floor(Date.now() / 1000);
-      const windowSeconds = Math.floor(3.5 * 24 * 60 * 60);
-      const bucketSizeSeconds = Math.floor(windowSeconds / HISTORY_LABELS.length);
 
       let tvlStroops = BigInt(0);
       let activeContractsCount = 0;
@@ -187,7 +189,48 @@ export class AgreementChainService {
       let disputedCount = 0;
       let totalLandlordResolved = BigInt(0);
       let totalTenantResolved = BigInt(0);
-      const buckets = HISTORY_LABELS.map(() => BigInt(0));
+
+      const fundedAgreements = agreements.filter((a) => a.fundedAt > 0);
+      const fundedTimestamps = fundedAgreements.map((a) => a.fundedAt);
+
+      const earliestFunded =
+        fundedTimestamps.length > 0
+          ? Math.min(...fundedTimestamps)
+          : nowSeconds - 12 * 3600;
+
+      const timespanSeconds = Math.max(3600, nowSeconds - earliestFunded);
+
+      const totalMinutes = Math.max(1, Math.round(timespanSeconds / 60));
+      const totalHours = Math.round(timespanSeconds / 3600);
+
+      let bucketCount: number;
+      let bucketSizeSeconds: number;
+      let labels: string[];
+      let windowLabel: string;
+
+      if (totalMinutes <= 180) {
+        bucketCount = Math.min(8, Math.max(3, Math.round(totalMinutes / 15)));
+        bucketSizeSeconds = Math.ceil(timespanSeconds / bucketCount);
+        labels = Array.from({ length: bucketCount }, (_, i) => {
+          const mins = Math.round(((bucketCount - 1 - i) * bucketSizeSeconds) / 60);
+          return i === bucketCount - 1 ? 'Now' : `-${mins}m`;
+        });
+        windowLabel = totalMinutes < 60
+          ? `${totalMinutes} Min`
+          : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+      } else {
+        bucketCount = Math.min(8, Math.max(5, Math.round(totalHours / 2)));
+        bucketSizeSeconds = Math.ceil(timespanSeconds / bucketCount);
+        labels = Array.from({ length: bucketCount }, (_, i) => {
+          const h = Math.round(((bucketCount - 1 - i) * bucketSizeSeconds) / 3600);
+          return i === bucketCount - 1 ? 'Now' : `-${h}h`;
+        });
+        windowLabel = totalHours < 48 ? `${totalHours} Hours` : `${Math.round(totalHours / 24)} Days`;
+      }
+
+      const windowStartSeconds = nowSeconds - bucketCount * bucketSizeSeconds;
+      const bucketsStroops = new Array(bucketCount).fill(BigInt(0));
+      const bucketCounts = new Array(bucketCount).fill(0);
 
       for (const agreement of agreements) {
         if (hasLockedFunds(agreement.status)) {
@@ -208,10 +251,11 @@ export class AgreementChainService {
           totalTenantResolved += agreement.resolutionTenantAmount;
         }
 
-        if (agreement.fundedAt > 0 && agreement.fundedAt >= nowSeconds - windowSeconds) {
-          const elapsed = Math.max(0, agreement.fundedAt - (nowSeconds - windowSeconds));
-          const bucketIndex = Math.min(HISTORY_LABELS.length - 1, Math.floor(elapsed / bucketSizeSeconds));
-          buckets[bucketIndex] += agreement.depositAmount;
+        if (agreement.fundedAt > 0) {
+          const elapsed = Math.max(0, agreement.fundedAt - windowStartSeconds);
+          const bucketIndex = Math.min(bucketCount - 1, Math.floor(elapsed / bucketSizeSeconds));
+          bucketsStroops[bucketIndex] += agreement.depositAmount;
+          bucketCounts[bucketIndex] += 1;
         }
       }
 
@@ -219,7 +263,8 @@ export class AgreementChainService {
       const depositSplitLandlordPct =
         totalResolved > BigInt(0) ? Math.round(Number((totalLandlordResolved * BigInt(100)) / totalResolved)) : 0;
       const depositSplitTenantPct = totalResolved > BigInt(0) ? 100 - depositSplitLandlordPct : 100;
-      const maxBucket = buckets.reduce((max, bucket) => (bucket > max ? bucket : max), BigInt(0));
+      const maxBucket = bucketsStroops.reduce((max, bucket) => (bucket > max ? bucket : max), BigInt(0));
+
       const divisor = maxBucket > BigInt(0) ? maxBucket : BigInt(1);
 
       return {
@@ -230,11 +275,15 @@ export class AgreementChainService {
         disputeRate: agreements.length > 0 ? ((disputedCount / agreements.length) * 100).toFixed(2) : '0.00',
         depositSplitLandlordPct,
         depositSplitTenantPct,
-        tvlHistory: buckets.map((bucket, index) => ({
-          label: HISTORY_LABELS[index],
-          amountXlm: Number(bucket) / 10000000,
-          pct: Math.max(5, Math.round(Number((bucket * BigInt(100)) / divisor))),
+        tvlHistory: bucketsStroops.map((stroops, index) => ({
+          label: labels[index],
+          amountXlm: Number(stroops) / 10_000_000,
+          pct: maxBucket > BigInt(0) ? Math.round(Number((stroops * BigInt(100)) / divisor)) : 0,
+          count: bucketCounts[index],
+          fromTimestamp: windowStartSeconds + index * bucketSizeSeconds,
+          toTimestamp: index === bucketCount - 1 ? nowSeconds : windowStartSeconds + (index + 1) * bucketSizeSeconds,
         })),
+        timeWindowLabel: windowLabel,
         lastUpdated: Date.now(),
       };
     } catch (error) {
