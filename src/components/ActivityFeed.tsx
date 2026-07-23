@@ -4,7 +4,7 @@ import React from 'react';
 import { useEventStream } from '@/hooks/useEventStream';
 
 export default function ActivityFeed({ agreementId, disputeId }: { agreementId?: string | number | null; disputeId?: string | number | null }) {
-  const { events, loading } = useEventStream(agreementId, disputeId);
+  const { events, loading, error } = useEventStream(agreementId, disputeId);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -62,38 +62,43 @@ export default function ActivityFeed({ agreementId, disputeId }: { agreementId?:
         {loading && <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>}
       </div>
 
-      {!agreementId ? (
-        <div className="text-center py-8 text-xs text-[#585f6c]">
-          Select or open an agreement to view its on-chain activity stream.
+      {error ? (
+        <div className="text-center py-8 text-xs">
+          <p className="text-[#ba1a1a] font-medium mb-1">Failed to load events</p>
+          <p className="text-[#585f6c] break-all">{error}</p>
         </div>
       ) : events.length === 0 ? (
-        <div className="text-center py-8 text-xs text-[#585f6c]">No events detected on-chain yet for this agreement.</div>
+        <div className="text-center py-8 text-xs text-[#585f6c]">
+          {agreementId ? 'No events detected on-chain yet for this agreement.' : 'No on-chain events detected yet across your agreements.'}
+        </div>
       ) : (
-        <div className="relative pl-6 space-y-6">
-          <div className="absolute left-[9px] top-2 bottom-2 w-px bg-[#c4c7c7]/50"></div>
+        <div className="max-h-[300px] overflow-y-auto pr-2">
+          <div className="relative pl-6 space-y-6">
+            <div className="absolute left-[9px] top-2 bottom-2 w-px bg-[#c4c7c7]/50"></div>
 
-          {events.map((event) => (
-            <div key={event.id} className="relative flex items-start gap-4 text-xs">
-              <div className={`absolute -left-6 w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#ffffff] z-10 ${getIconColor(event.type)}`}>
-                <span className="material-symbols-outlined text-[10px] font-bold">{getIcon(event.type)}</span>
-              </div>
+            {events.map((event) => (
+              <div key={event.id} className="relative flex items-start gap-4 text-xs">
+                <div className={`absolute -left-6 w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#ffffff] z-10 ${getIconColor(event.type)}`}>
+                  <span className="material-symbols-outlined text-[10px] font-bold">{getIcon(event.type)}</span>
+                </div>
 
-              <div className="flex-grow">
-                <p className="font-semibold text-black leading-relaxed">{event.message}</p>
-                <p className="text-[10px] text-[#585f6c] mt-1 flex items-center gap-1.5">
-                  <span>Ledger: {event.ledger}</span>
-                  <span>•</span>
-                  <span>
-                    {new Date(event.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                    })}
-                  </span>
-                </p>
+                <div className="flex-grow">
+                  <p className="font-semibold text-black leading-relaxed">{event.message}</p>
+                  <p className="text-[10px] text-[#585f6c] mt-1 flex items-center gap-1.5">
+                    <span>Ledger: {event.ledger}</span>
+                    <span>•</span>
+                    <span>
+                      {new Date(event.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}
+                    </span>
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>

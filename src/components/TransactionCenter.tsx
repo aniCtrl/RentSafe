@@ -2,10 +2,12 @@
 
 import React from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { parseAgreementSlug } from '@/lib/rentsafe';
 
 export default function TransactionCenter({ agreementId }: { agreementId?: string | number | null }) {
   const { transactions, clearTransactions } = useAppStore();
-  const scopeKey = agreementId != null ? String(agreementId) : null;
+  const parsedId = agreementId != null ? parseAgreementSlug(String(agreementId)) : NaN;
+  const scopeKey = !isNaN(parsedId) ? String(parsedId) : (agreementId != null ? String(agreementId) : null);
   const scopedTransactions = scopeKey
     ? transactions.filter((transaction) => transaction.agreementId === scopeKey)
     : transactions;
