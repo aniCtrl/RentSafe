@@ -86,19 +86,19 @@ The RentSafe contracts are fully deployed and initialized on the **Stellar Testn
 
 | Contract | Address / ID | Explorer Link |
 |---|---|---|
-| **Escrow Contract** | `CDMI23JKHYAH46CTTU4F7ME57PRCZH7FMJJYFZEVPUAD6Y36T3H6OIVQ` | [Stellar Expert — Escrow](https://stellar.expert/explorer/testnet/contract/CDMI23JKHYAH46CTTU4F7ME57PRCZH7FMJJYFZEVPUAD6Y36T3H6OIVQ) |
-| **Dispute Contract** | `CD7FXU24BREXPOCI347GK3H6HYXNSJQ3BE3I7M5XEAHWXRB6XG63KVIB` | [Stellar Expert — Dispute](https://stellar.expert/explorer/testnet/contract/CD7FXU24BREXPOCI347GK3H6HYXNSJQ3BE3I7M5XEAHWXRB6XG63KVIB) |
+| **Escrow Contract** | `CCE4NS3FBKXATLXVIDP3B2NHJ4Z6XEFNTIIZ474WTJTYBXMKSGKBMXIL` | [Stellar Expert — Escrow](https://stellar.expert/explorer/testnet/contract/CCE4NS3FBKXATLXVIDP3B2NHJ4Z6XEFNTIIZ474WTJTYBXMKSGKBMXIL) |
+| **Dispute Contract** | `CD5ZUZY7I62XBLOWQPLSFFXL6VHRRQ327WFGB5YOSLOGVIGOLWQDVEO5` | [Stellar Expert — Dispute](https://stellar.expert/explorer/testnet/contract/CD5ZUZY7I62XBLOWQPLSFFXL6VHRRQ327WFGB5YOSLOGVIGOLWQDVEO5) |
 
 ### Active Role Configurations (Testnet):
-*   **Platform Admin / Owner**: `GBKEWLPR74ZPGJV7PGQAEMMKUQ4N35JD4SC23CCHNKYZRKIQA7NSVMKT` (Authority on Dispute resolution)
+*   **Platform Admin / Owner**: `GA2C5CQ45P36CQ5QEZIJXQOFG6KDCZHXUDEHUMESDQ5D5JB5IWHGWTGJ` (Authority on Dispute resolution)
 *   **Landlord**: `GBFJINJRIR3JOEOZCNWLSF3B5VENKG2RAGVT4WY4J6AHW32UU2GF3TW3`
 *   **Tenant**: `GB4TTRCTXZ3RNNB6COSWVFWXNPUYWVHX7GI63Z7OC2KYR4BS5W54WAHF`
-*   **Arbitrator**: `GAKY5EWWOETAUQQZJPSW3OD5R2N46BE7G24PAHSHLGYLZGTMOLWE7BXT`
+*   **Arbitrator**: `GA2C5CQ45P36CQ5QEZIJXQOFG6KDCZHXUDEHUMESDQ5D5JB5IWHGWTGJ`
 *   **Token Address**: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` (Native XLM SAC Contract)
 
 ### Deployment Transaction Hashes:
-*   **Escrow Deployment Hash**: `d5cc3b36fe1cc5dff42f1a615b1d4234cab1d14bcc7a1947adf17a8b614051bf` | [Stellar Expert Explorer](https://stellar.expert/explorer/testnet/tx/d5cc3b36fe1cc5dff42f1a615b1d4234cab1d14bcc7a1947adf17a8b614051bf)
-*   **Dispute Deployment Hash**: `6d2986089113f192e57785975bdb919e06b9307b4984eb833dc5e0f829eb9219` | [Stellar Expert Explorer](https://stellar.expert/explorer/testnet/tx/6d2986089113f192e57785975bdb919e06b9307b4984eb833dc5e0f829eb9219)
+*   **Escrow Deployment Hash**: `13ae1efe5c7fecfb68987cc126b56b2cf4e34ab767dc83d468405f801e42794e` | [Stellar Expert Explorer](https://stellar.expert/explorer/testnet/tx/13ae1efe5c7fecfb68987cc126b56b2cf4e34ab767dc83d468405f801e42794e)
+*   **Dispute Deployment Hash**: `809be3893b132cf48519ee90e4c6dbbd3e310f951c20043ee63e6cb312250fd8` | [Stellar Expert Explorer](https://stellar.expert/explorer/testnet/tx/809be3893b132cf48519ee90e4c6dbbd3e310f951c20043ee63e6cb312250fd8)
 
 ---
 
