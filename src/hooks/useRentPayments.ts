@@ -163,7 +163,8 @@ export function useRentPayments({
 
       setLastTxHash(txHash);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
+      const { translateStellarError } = await import('@/lib/errors');
+      setError(translateStellarError(err));
     } finally {
       setLoading(false);
     }

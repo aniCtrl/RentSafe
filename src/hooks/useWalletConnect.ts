@@ -45,8 +45,8 @@ export function useWalletConnect() {
     } catch (err: any) {
       console.error('StellarWalletsKit connection failed:', err);
       if (err?.message !== 'The user closed the modal.') {
-        const errMsg = err instanceof Error ? err.message : String(err?.message || err || 'Connection failed');
-        alert(`Wallet Connection Error: ${errMsg}`);
+        const { translateStellarError } = await import('@/lib/errors');
+        alert(`Wallet Connection Error: ${translateStellarError(err)}`);
       }
     } finally {
       setConnecting(false);

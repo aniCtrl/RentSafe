@@ -67,6 +67,7 @@ pub enum DisputeDataKey {
     Dispute(u64),
     DisputeIds,
     DisputeByAgreement(u64),
+    Role(Address, Symbol),
 }
 
 #[contractclient(name = "EscrowRegistryClient")]
@@ -106,11 +107,77 @@ impl DisputeContract {
             .persistent()
             .set(&DisputeDataKey::DisputeIds, &Vec::<u64>::new(&env));
 
+        // Grant initial roles to the admin address
+        let admin_role = Symbol::new(&env, "admin");
+        let arb_role = Symbol::new(&env, "arbitrator");
+        Self::grant_role(&env, &admin, &admin_role);
+        Self::grant_role(&env, &admin, &arb_role);
+
         env.events().publish(
             (Symbol::new(&env, "dispute_initialized"),),
             (admin, escrow_contract),
         );
 
+        Ok(())
+    }
+
+    // Role helper functions (public check)
+    pub fn has_role(env: Env, address: Address, role: Symbol) -> bool {
+        env.storage()
+            .persistent()
+            .has(&DisputeDataKey::Role(address, role))
+    }
+
+    fn grant_role(env: &Env, address: &Address, role: &Symbol) {
+        env.storage()
+            .persistent()
+            .set(&DisputeDataKey::Role(address.clone(), role.clone()), &true);
+    }
+
+    fn revoke_role(env: &Env, address: &Address, role: &Symbol) {
+        env.storage()
+            .persistent()
+            .remove(&DisputeDataKey::Role(address.clone(), role.clone()));
+    }
+
+    // Admin role configuration endpoints
+    pub fn add_arbitrator(env: Env, admin_caller: Address, arbitrator: Address) -> Result<(), Error> {
+        admin_caller.require_auth();
+        if !Self::has_role(env.clone(), admin_caller, Symbol::new(&env, "admin")) {
+            return Err(Error::NotAuthorized);
+        }
+        let arb_role = Symbol::new(&env, "arbitrator");
+        Self::grant_role(&env, &arbitrator, &arb_role);
+        Ok(())
+    }
+
+    pub fn remove_arbitrator(env: Env, admin_caller: Address, arbitrator: Address) -> Result<(), Error> {
+        admin_caller.require_auth();
+        if !Self::has_role(env.clone(), admin_caller, Symbol::new(&env, "admin")) {
+            return Err(Error::NotAuthorized);
+        }
+        let arb_role = Symbol::new(&env, "arbitrator");
+        Self::revoke_role(&env, &arbitrator, &arb_role);
+        Ok(())
+    }
+
+    pub fn add_admin(env: Env, admin_caller: Address, new_admin: Address) -> Result<(), Error> {
+        admin_caller.require_auth();
+        if !Self::has_role(env.clone(), admin_caller, Symbol::new(&env, "admin")) {
+            return Err(Error::NotAuthorized);
+        }
+        let admin_role = Symbol::new(&env, "admin");
+        Self::grant_role(&env, &new_admin, &admin_role);
+        Ok(())
+    }
+
+    pub fn remove_admin(env: Env, admin_caller: Address, old_admin: Address) -> Result<(), Error> {
+        admin_caller.require_auth();
+        if !Self::has_role(env.clone(), admin_caller, Symbol::new(&env, "admin")) {
+            return Err(Error::NotAuthorized);
+        }
+        let admin_role = Symbol::new(&env, "admin");
+        Self::revoke_role(&env, &old_admin, &admin_role);
         Ok(())
     }
 
@@ -209,12 +276,15 @@ impl DisputeContract {
 
     pub fn resolve_dispute(
         env: Env,
+        caller: Address,
         dispute_id: u64,
         landlord_amount: i128,
         tenant_amount: i128,
     ) -> Result<(), Error> {
-        let config = Self::get_config(env.clone())?;
-        config.admin.require_auth();
+        caller.require_auth();
+        if !Self::has_role(env.clone(), caller, Symbol::new(&env, "arbitrator")) {
+            return Err(Error::NotAuthorized);
+        }
 
         if landlord_amount < 0 || tenant_amount < 0 {
             return Err(Error::InvalidOutcome);
@@ -234,6 +304,7 @@ impl DisputeContract {
         dispute.outcome_resolved_at = env.ledger().timestamp();
         Self::save_dispute(&env, &dispute);
 
+        let config = Self::get_config(env.clone())?;
         let escrow_client = EscrowRegistryClient::new(&env, &config.escrow_contract);
         escrow_client.resolve_dispute_callback(
             &dispute.agreement_id,
@@ -249,9 +320,11 @@ impl DisputeContract {
         Ok(())
     }
 
-    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
-        let config = Self::get_config(env.clone())?;
-        config.admin.require_auth();
+    pub fn upgrade(env: Env, caller: Address, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
+        caller.require_auth();
+        if !Self::has_role(env.clone(), caller, Symbol::new(&env, "admin")) {
+            return Err(Error::NotAuthorized);
+        }
         env.deployer().update_current_contract_wasm(new_wasm_hash);
         Ok(())
     }
@@ -445,12 +518,80 @@ mod test {
         );
 
         env.mock_all_auths_allowing_non_root_auth();
-        dispute_client.resolve_dispute(&dispute_id, &250_i128, &750_i128);
+        dispute_client.resolve_dispute(&admin, &dispute_id, &250_i128, &750_i128);
 
         let dispute = dispute_client.get_dispute(&dispute_id);
         let callback = escrow_client.get_last_callback();
         assert_eq!(dispute.status, DisputeStatus::Resolved);
         assert!(dispute.has_outcome);
         assert_eq!(callback, (7_u64, 250_i128, 750_i128));
+    }
+
+    #[test]
+    fn test_rbac_grant_revoke_arbitrator() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let escrow_address = Address::generate(&env);
+        
+        let dispute_address = env.register(DisputeContract, ());
+        let dispute_client = DisputeContractClient::new(&env, &dispute_address);
+
+        env.mock_all_auths_allowing_non_root_auth();
+        dispute_client.initialize(&admin, &escrow_address);
+
+        // Check initial role of admin is arbitrator and admin
+        assert!(dispute_client.has_role(&admin, &Symbol::new(&env, "admin")));
+        assert!(dispute_client.has_role(&admin, &Symbol::new(&env, "arbitrator")));
+
+        let other_user = Address::generate(&env);
+        assert!(!dispute_client.has_role(&other_user, &Symbol::new(&env, "arbitrator")));
+
+        // Admin adds other_user as arbitrator
+        dispute_client.add_arbitrator(&admin, &other_user);
+        assert!(dispute_client.has_role(&other_user, &Symbol::new(&env, "arbitrator")));
+
+        // Other user attempts to add someone else as arbitrator - should fail because they are not admin
+        let third_user = Address::generate(&env);
+        let fail_res = dispute_client.try_add_arbitrator(&other_user, &third_user);
+        assert!(fail_res.is_err());
+
+        // Admin removes other_user as arbitrator
+        dispute_client.remove_arbitrator(&admin, &other_user);
+        assert!(!dispute_client.has_role(&other_user, &Symbol::new(&env, "arbitrator")));
+    }
+
+    #[test]
+    fn test_rbac_unauthorized_resolve_dispute() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+
+        let escrow_address = env.register(StubEscrow, ());
+        let escrow_client = StubEscrowClient::new(&env, &escrow_address);
+        let dispute_address = env.register(DisputeContract, ());
+        let dispute_client = DisputeContractClient::new(&env, &dispute_address);
+
+        env.mock_all_auths_allowing_non_root_auth();
+        escrow_client.initialize(&landlord, &tenant);
+        dispute_client.initialize(&admin, &escrow_address);
+
+        let dispute_id = dispute_client.register_dispute(
+            &7_u64,
+            &landlord,
+            &tenant,
+            &landlord,
+            &String::from_str(&env, "Deductions contested"),
+        );
+
+        // Try to resolve dispute with an unauthorized account
+        let intruder = Address::generate(&env);
+        let result = dispute_client.try_resolve_dispute(&intruder, &dispute_id, &250_i128, &750_i128);
+        assert!(result.is_err());
+
+        // Now resolve with authorized admin/arbitrator
+        dispute_client.resolve_dispute(&admin, &dispute_id, &250_i128, &750_i128);
+        let dispute = dispute_client.get_dispute(&dispute_id);
+        assert_eq!(dispute.status, DisputeStatus::Resolved);
     }
 }

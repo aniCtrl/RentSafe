@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import DashboardOverview from '../components/dashboard/DashboardOverview';
 import CreatePage from '../app/create/page';
 import AppShell from '../components/app/AppShell';
@@ -97,6 +98,14 @@ vi.mock('@creit.tech/stellar-wallets-kit/types', () => ({
   Networks: { TESTNET: 'testnet', PUBLIC: 'public' },
 }));
 
+const testQueryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+});
+
 describe('Frontend UI Component Tests', () => {
   beforeEach(() => {
     const { resetSession } = useAppStore.getState();
@@ -110,7 +119,11 @@ describe('Frontend UI Component Tests', () => {
     (useUserAgreements as any).mockReturnValue({ data: [], isLoading: false });
     (useDashboardMetrics as any).mockReturnValue({ data: null, isLoading: false });
 
-    render(<DashboardOverview />);
+    render(
+      <QueryClientProvider client={testQueryClient}>
+        <DashboardOverview />
+      </QueryClientProvider>
+    );
 
     // Screen should render the connect prompt with heading and instructions
     expect(screen.getByRole('heading', { name: 'Connect Wallet' })).toBeInTheDocument();
@@ -123,7 +136,11 @@ describe('Frontend UI Component Tests', () => {
     (useUserAgreements as any).mockReturnValue({ data: [], isLoading: false });
     (useDashboardMetrics as any).mockReturnValue({ data: { tvl: '0.00', activeCount: 0, pendingCount: '0.00' }, isLoading: false });
 
-    render(<DashboardOverview />);
+    render(
+      <QueryClientProvider client={testQueryClient}>
+        <DashboardOverview />
+      </QueryClientProvider>
+    );
 
     expect(screen.getByText('No Agreements Found')).toBeInTheDocument();
     expect(screen.getByText('You do not have any agreements registered in the shared escrow contract yet.')).toBeInTheDocument();
@@ -134,7 +151,11 @@ describe('Frontend UI Component Tests', () => {
     // Force connected state
     useAppStore.setState({ address: 'GB_LANDLORD_123', walletId: 'freighter' });
 
-    render(<CreatePage />);
+    render(
+      <QueryClientProvider client={testQueryClient}>
+        <CreatePage />
+      </QueryClientProvider>
+    );
 
     // Step 1: Fill landlord and tenant addresses and continue
     const inputs = screen.getAllByPlaceholderText('G...');
@@ -170,9 +191,11 @@ describe('Frontend UI Component Tests', () => {
     useAppStore.setState({ address: '', walletId: '' });
 
     render(
-      <AppShell title="Test Page">
-        <div>Content</div>
-      </AppShell>
+      <QueryClientProvider client={testQueryClient}>
+        <AppShell title="Test Page">
+          <div>Content</div>
+        </AppShell>
+      </QueryClientProvider>
     );
 
     // Get connect button and click it

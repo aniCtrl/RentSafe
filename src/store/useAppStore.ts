@@ -40,6 +40,11 @@ export interface TransactionRecord {
   timestamp: number;
   description: string;
   agreementId?: string;
+  retryPayload?: {
+    contractId: string;
+    method: string;
+    args: any[];
+  };
 }
 
 export type EscrowInfo = AgreementRecord;

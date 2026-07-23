@@ -6,6 +6,7 @@ import ActivityFeed from '@/components/ActivityFeed';
 import TransactionCenter from '@/components/TransactionCenter';
 import { ContractService } from '@/services/contractService';
 import { useInspectEscrow } from '@/hooks/useInspectEscrow';
+import { DEFAULT_ESCROW_ID, DEFAULT_DISPUTE_ID } from '@/lib/stellar';
 import {
   AGREEMENT_STATUS_LABELS,
   formatStroopsToXlm,
@@ -169,7 +170,12 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                     <p className="text-[10px] text-[#585f6c]">Tenant locks the deposit funds into the single shared escrow contract.</p>
                     <button
                       disabled={actionLoading !== null || role !== 'Tenant' || agreement.status !== 0}
-                      onClick={() => runTrackedAction('Lock Deposit', 'lock_deposit', () => ContractService.lockDeposit(agreement.agreementId, address))}
+                      onClick={() => runTrackedAction(
+                        'Lock Deposit', 
+                        'lock_deposit', 
+                        () => ContractService.lockDeposit(agreement.agreementId, address),
+                        { contractId: DEFAULT_ESCROW_ID, method: 'lock_deposit', args: [agreement.agreementId] }
+                      )}
                       className="bg-black text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity w-full"
                     >
                       {actionLoading === 'Lock Deposit' ? 'Submitting...' : agreement.status === 0 ? 'Lock Deposit' : 'Deposit Already Locked'}
@@ -181,7 +187,12 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                     <p className="text-[10px] text-[#585f6c]">At move-out, the landlord decides the deposit outcome: approve a full tenant refund, or propose a deduction.</p>
                     <button
                       disabled={actionLoading !== null || role !== 'Landlord' || ![1, 2].includes(agreement.status)}
-                      onClick={() => runTrackedAction('Request Full Refund', 'request_full_refund', () => ContractService.requestFullRefund(agreement.agreementId, address))}
+                      onClick={() => runTrackedAction(
+                        'Request Full Refund', 
+                        'request_full_refund', 
+                        () => ContractService.requestFullRefund(agreement.agreementId, address),
+                        { contractId: DEFAULT_ESCROW_ID, method: 'request_full_refund', args: [agreement.agreementId] }
+                      )}
                       className="bg-black text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity w-full"
                     >
                       {actionLoading === 'Request Full Refund' ? 'Submitting...' : 'Approve Full Tenant Refund'}
@@ -219,8 +230,10 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                             setActionError('Please provide a deduction reason before submitting.');
                             return;
                           }
-                          void runTrackedAction('Request Deduction', 'request_deduction', () =>
-                            ContractService.requestDeduction(
+                          void runTrackedAction(
+                            'Request Deduction', 
+                            'request_deduction', 
+                            () => ContractService.requestDeduction(
                               agreement.agreementId,
                               {
                                 amount: BigInt(Math.round(parseFloat(deductionAmount || '0') * 10_000_000)),
@@ -228,6 +241,15 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                               },
                               address,
                             ),
+                            {
+                              contractId: DEFAULT_ESCROW_ID,
+                              method: 'request_deduction',
+                              args: [
+                                agreement.agreementId,
+                                BigInt(Math.round(parseFloat(deductionAmount || '0') * 10_000_000)),
+                                deductionReason,
+                              ]
+                            }
                           );
                         }}
                         className="bg-[#151c27] text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity w-full"
@@ -251,14 +273,24 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                     <h4 className="text-xs font-bold text-[#000000]">Tenant Response</h4>
                     <button
                       disabled={actionLoading !== null || role !== 'Tenant'}
-                      onClick={() => runTrackedAction('Accept Deduction', 'respond_to_deduction', () => ContractService.respondToDeduction(agreement.agreementId, true, address))}
+                      onClick={() => runTrackedAction(
+                        'Accept Deduction', 
+                        'respond_to_deduction', 
+                        () => ContractService.respondToDeduction(agreement.agreementId, true, address),
+                        { contractId: DEFAULT_ESCROW_ID, method: 'respond_to_deduction', args: [agreement.agreementId, true] }
+                      )}
                       className="bg-black text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity w-full"
                     >
                       {actionLoading === 'Accept Deduction' ? 'Submitting...' : 'Accept Deduction'}
                     </button>
                     <button
                       disabled={actionLoading !== null || role !== 'Tenant'}
-                      onClick={() => runTrackedAction('Reject Deduction', 'respond_to_deduction', () => ContractService.respondToDeduction(agreement.agreementId, false, address))}
+                      onClick={() => runTrackedAction(
+                        'Reject Deduction', 
+                        'respond_to_deduction', 
+                        () => ContractService.respondToDeduction(agreement.agreementId, false, address),
+                        { contractId: DEFAULT_ESCROW_ID, method: 'respond_to_deduction', args: [agreement.agreementId, false] }
+                      )}
                       className="bg-[#ba1a1a] text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity w-full"
                     >
                       {actionLoading === 'Reject Deduction' ? 'Submitting...' : 'Reject Deduction'}
@@ -275,7 +307,12 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                   </p>
                   <button
                     disabled={actionLoading !== null || (role !== 'Landlord' && role !== 'Tenant')}
-                    onClick={() => runTrackedAction('Settle Agreement', 'settle', () => ContractService.settle(agreement.agreementId, address))}
+                    onClick={() => runTrackedAction(
+                      'Settle Agreement', 
+                      'settle', 
+                      () => ContractService.settle(agreement.agreementId, address),
+                      { contractId: DEFAULT_ESCROW_ID, method: 'settle', args: [agreement.agreementId] }
+                    )}
                     className="bg-black text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity"
                   >
                     {actionLoading === 'Settle Agreement' ? 'Submitting...' : 'Settle Funds'}
@@ -330,18 +367,27 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                           setActionError('Please provide an initial evidence reference.');
                           return;
                         }
-                        void runTrackedAction('Raise Dispute', 'raise_dispute', async () => {
-                          const result = await ContractService.raiseDispute(
-                            agreement.agreementId,
-                            {
-                              raisedBy: address,
-                              reason: disputeReason,
-                              evidenceRef: disputeEvidenceRef,
-                            },
-                            address,
-                          );
-                          return result.txHash;
-                        });
+                        void runTrackedAction(
+                          'Raise Dispute', 
+                          'raise_dispute', 
+                          async () => {
+                            const result = await ContractService.raiseDispute(
+                              agreement.agreementId,
+                              {
+                                raisedBy: address,
+                                reason: disputeReason,
+                                evidenceRef: disputeEvidenceRef,
+                              },
+                              address,
+                            );
+                            return result.txHash;
+                          },
+                          {
+                            contractId: DEFAULT_ESCROW_ID,
+                            method: 'raise_dispute',
+                            args: [agreement.agreementId, address, disputeReason, disputeEvidenceRef]
+                          }
+                        );
                       }}
                       className="bg-[#ba1a1a] text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity"
                     >
@@ -408,12 +454,19 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                               setActionError('Please enter an evidence reference before submitting.');
                               return;
                             }
-                            void runTrackedAction('Submit Evidence', 'submit_evidence', () =>
-                              ContractService.submitDisputeEvidence(
+                            void runTrackedAction(
+                              'Submit Evidence', 
+                              'submit_evidence', 
+                              () => ContractService.submitDisputeEvidence(
                                 dispute.disputeId,
                                 { submitter: address, evidenceRef: additionalEvidenceRef },
                                 address,
                               ),
+                              {
+                                contractId: DEFAULT_DISPUTE_ID,
+                                method: 'submit_evidence',
+                                args: [dispute.disputeId, address, additionalEvidenceRef]
+                              }
                             );
                           }}
                           className="bg-black text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity"
