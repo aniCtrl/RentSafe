@@ -164,3 +164,27 @@ If you modify smart contract Rust code and need to swap WASM bytecode on-chain:
 ```
 
 The script will install the new WASM binary, extract its hash, and invoke the contract's secure `upgrade` method, authorizing the swap via the storage-backed admin role.
+
+---
+
+## 8. Deploying Frontend to Vercel
+
+Since the Next.js app is pre-configured and optimized, it can be deployed to Vercel in a few clicks.
+
+### 8.1. Deployment Configuration
+1. Push your repository to GitHub, GitLab, or Bitbucket.
+2. Import the project on your [Vercel Dashboard](https://vercel.com).
+3. **Environment Variables**: In the Vercel project configuration, add all variables defined in your `.env` file under **Settings > Environment Variables**:
+   * `NEXT_PUBLIC_ESCROW_CONTRACT_ID`
+   * `NEXT_PUBLIC_DISPUTE_CONTRACT_ID`
+   * `NEXT_PUBLIC_ARBITRATOR_ADDRESS`
+   * `NEXT_PUBLIC_ESCROW_WASM_HASH`
+   * `STELLAR_NETWORK` (set to `testnet`)
+   * `RENTSAFE_PLATFORM_ADDRESS`
+
+> [!IMPORTANT]
+> Do **NOT** set `RENTSAFE_PLATFORM_SECRET_KEY` on Vercel. The platform secret key is only used locally by administrative deployment/initialization scripts and must never be exposed to the client-side frontend or uploaded to Vercel.
+
+### 8.2. Build Optimization
+We have configured a `.vercelignore` file to exclude heavy Rust compiler artifacts (`target/`), Cargo workspace configurations, and contract source code (`contracts/`, `scripts/`). This ensures Vercel uploads are extremely fast and lambdas remain lightweight.
+
