@@ -76,8 +76,8 @@ export function useEventStream(agreementId?: number | string | null, disputeId?:
     }
   };
 
-  const escrowIdUpper = useRef(DEFAULT_ESCROW_ID.toUpperCase()).current;
-  const disputeIdUpper = useRef(DEFAULT_DISPUTE_ID.toUpperCase()).current;
+  const escrowIdUpper = DEFAULT_ESCROW_ID.toUpperCase();
+  const disputeIdUpper = DEFAULT_DISPUTE_ID.toUpperCase();
 
   useEffect(() => {
     if (!isValidAgreementId && !isAllMode) {
@@ -156,7 +156,7 @@ export function useEventStream(agreementId?: number | string | null, disputeId?:
           .filter((d): d is DecodedEvent => d !== null)
           .sort((a, b) => b.ledger - a.ledger);
 
-        console.debug(`[EventStream] Fetched ${response.events.length} events, filtered to ${decoded.length} for escrow=${DEFAULT_ESCROW_ID.slice(0,8)}..., ledger range=${startLedger}-${latestLedger.sequence}`);
+        console.debug(`[EventStream] Fetched ${response.events.length} events, filtered to ${decoded.length} for escrow=${DEFAULT_ESCROW_ID.slice(0, 8)}..., ledger range=${startLedger}-${latestLedger.sequence}`);
 
         setEvents(decoded);
       } catch (err) {
