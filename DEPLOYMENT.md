@@ -10,9 +10,19 @@ Before starting, ensure you have the following installed and configured:
 
 ### 1.1. Install Stellar CLI
 The Stellar CLI is required to interact with the Stellar network. Install it using Cargo (Rust's package manager):
+
 ```bash
-cargo install --locked stellar-cli --features opt
+cargo install --locked stellar-cli
 ```
+
+> [!NOTE]
+> **Important version note:** Older guides recommended using `--features opt` to enable contract optimization. From version 22+ (including the current `v27.0.0`), the CLI features have been reorganized. The optimization library dependencies (`wasm-opt`) are now grouped under the `additional-libs` feature, which is enabled **by default**. 
+>
+> If you encounter compilation issues with system dependencies (e.g., `libdbus` or `libudev`), you can install the CLI with:
+> ```bash
+> cargo install --locked stellar-cli --no-default-features
+> ```
+
 Verify the installation:
 ```bash
 stellar --version
@@ -56,7 +66,7 @@ Run the `deploy.sh` script to build the contracts and deploy them to the Stellar
 
 ## 3. Initializing and Wiring Inter-Contract Dependency
 
-The Escrow and Dispute contracts refer to each other. They must be initialized in two phases. We automate this configuration using `initialize.sh` (which wrappers `initialize.py`).
+The Escrow and Dispute contracts refer to each other. They must be initialized in two phases. We automate this configuration using `initialize.sh` (which wraps `initialize.py`).
 
 ### 3.1. Generate the Platform Admin Wallet
 Before initializing, you must define who owns the platform. Generate a dedicated platform admin wallet:
@@ -118,7 +128,7 @@ The `.env.example` file serves as a reference template for developers. It define
 ```ini
 # Core Contract IDs (generated during deploy/init)
 NEXT_PUBLIC_ESCROW_CONTRACT_ID={{ESCROW_CONTRACT_ID}}
-NEXT_PUBLIC_DISPUTE_CONTRACT_ID={{ESCROW_CONTRACT_ID}}
+NEXT_PUBLIC_DISPUTE_CONTRACT_ID={{DISPUTE_CONTRACT_ID}}
 
 # Network settings
 STELLAR_NETWORK=testnet
@@ -132,10 +142,12 @@ In the Next.js frontend, variables prefixed with `NEXT_PUBLIC_` are bundled into
 Inside the codebase, they are read dynamically:
 * `process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID` maps to the contract client in `src/lib/stellar.ts`.
 * `process.env.NEXT_PUBLIC_DISPUTE_CONTRACT_ID` maps to the dispute interface in `src/lib/stellar.ts`.
-Any edits to these environment variables require a restart of the dev server:
-```bash
-npm run dev
-```
+
+> [!TIP]
+> Any edits to these environment variables require a restart of the dev server:
+> ```bash
+> npm run dev
+> ```
 
 ---
 
@@ -145,8 +157,10 @@ If you modify smart contract Rust code and need to swap WASM bytecode on-chain:
 ```bash
 ./scripts/upgrade.sh testnet <CONTRACT_ID> <PATH_TO_WASM> <ADMIN_IDENTITY_ALIAS>
 ```
+
 *Example:*
 ```bash
 ./scripts/upgrade.sh testnet CDMI23JK... target/wasm32v1-none/release/rentsafe_escrow.wasm rentsafe-admin
 ```
+
 The script will install the new WASM binary, extract its hash, and invoke the contract's secure `upgrade` method, authorizing the swap via the storage-backed admin role.
