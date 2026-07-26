@@ -1,0 +1,12 @@
+# Rust / Cargo
+/target
+**/*.rs.bk
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# OS-specific
+.DS_Store
+Thumbs.db
