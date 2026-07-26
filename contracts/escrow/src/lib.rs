@@ -377,3 +377,123 @@ impl EscrowContract {
         env.storage().instance().get(&DataKey::DisputeContract).ok_or(Error::DisputeContractNotSet)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+    use rentsafe_dispute::DisputeContract;
+    use rentsafe_dispute::DisputeContractClient;
+
+    #[test]
+    fn test_lifecycle_mutual_settlement() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+        let arbitrator = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        
+        let token_address = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
+        let token_admin_client = token::StellarAssetClient::new(&env, &token_address);
+        let token_client = token::Client::new(&env, &token_address);
+
+        let escrow_address = env.register(EscrowContract, ());
+        let escrow_client = EscrowContractClient::new(&env, &escrow_address);
+
+        let dispute_address = env.register(DisputeContract, ());
+        let dispute_client = DisputeContractClient::new(&env, &dispute_address);
+
+        let amount = 1000_i128;
+
+        // Initialize Escrow
+        escrow_client.initialize(&landlord, &tenant, &arbitrator, &token_address, &amount);
+        assert_eq!(escrow_client.get_state(), State::Created);
+
+        // Link Dispute Contract
+        escrow_client.set_dispute_contract(&dispute_address);
+        assert_eq!(escrow_client.get_dispute_contract(), dispute_address);
+
+        // Initialize Dispute Contract
+        dispute_client.initialize(&escrow_address, &arbitrator);
+
+        // Mint tokens to Tenant
+        token_admin_client.mint(&tenant, &amount);
+        assert_eq!(token_client.balance(&tenant), amount);
+
+        // Tenant funds the Escrow
+        escrow_client.fund();
+        assert_eq!(escrow_client.get_state(), State::Funded);
+        assert_eq!(token_client.balance(&escrow_address), amount);
+
+        // Landlord activates
+        escrow_client.activate();
+        assert_eq!(escrow_client.get_state(), State::Active);
+
+        // Mutual settlement proposal by Landlord (e.g. 400 for landlord, 600 for tenant)
+        escrow_client.request_settlement(&landlord, &400, &600);
+        assert_eq!(escrow_client.get_state(), State::SettlementRequested);
+
+        // Tenant accepts
+        escrow_client.accept_settlement(&tenant);
+        assert_eq!(escrow_client.get_state(), State::Closed);
+
+        // Verify balances
+        assert_eq!(token_client.balance(&landlord), 400);
+        assert_eq!(token_client.balance(&tenant), 600);
+        assert_eq!(token_client.balance(&escrow_address), 0);
+    }
+
+    #[test]
+    fn test_lifecycle_dispute_resolution() {
+        let env = Env::default();
+        env.mock_all_auths_allowing_non_root_auth();
+
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+        let arbitrator = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        
+        let token_address = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
+        let token_admin_client = token::StellarAssetClient::new(&env, &token_address);
+        let token_client = token::Client::new(&env, &token_address);
+
+        let escrow_address = env.register(EscrowContract, ());
+        let escrow_client = EscrowContractClient::new(&env, &escrow_address);
+
+        let dispute_address = env.register(DisputeContract, ());
+        let dispute_client = DisputeContractClient::new(&env, &dispute_address);
+
+        let amount = 1000_i128;
+
+        // Init both contracts
+        escrow_client.initialize(&landlord, &tenant, &arbitrator, &token_address, &amount);
+        escrow_client.set_dispute_contract(&dispute_address);
+        dispute_client.initialize(&escrow_address, &arbitrator);
+
+        // Fund
+        token_admin_client.mint(&tenant, &amount);
+        escrow_client.fund();
+        escrow_client.activate();
+
+        // Tenant triggers a dispute
+        let evidence_hash = BytesN::from_array(&env, &[1; 32]);
+        escrow_client.dispute(&tenant, &evidence_hash);
+
+        // Check states
+        assert_eq!(escrow_client.get_state(), State::Disputed);
+        assert_eq!(dispute_client.get_state(), rentsafe_dispute::DisputeState::Active);
+        assert_eq!(dispute_client.get_evidence_hash(), evidence_hash);
+
+        // Arbitrator resolves (payout 300 to landlord, 700 to tenant)
+        dispute_client.resolve(&300, &700);
+
+        // Check states and balances
+        assert_eq!(escrow_client.get_state(), State::Closed);
+        assert_eq!(dispute_client.get_state(), rentsafe_dispute::DisputeState::Resolved);
+        assert_eq!(token_client.balance(&landlord), 300);
+        assert_eq!(token_client.balance(&tenant), 700);
+        assert_eq!(token_client.balance(&escrow_address), 0);
+    }
+}
