@@ -6,7 +6,7 @@ import { useAppStore } from '@/store/useAppStore';
 
 export default function WalletSessionBootstrap() {
   const { bootstrapSession } = useWalletConnect();
-  const { address, walletId, setAddress, setBalance } = useAppStore();
+  const { address, walletId, setAddress, setBalance, resetSession } = useAppStore();
 
   useEffect(() => {
     bootstrapSession();
@@ -35,8 +35,10 @@ export default function WalletSessionBootstrap() {
     } catch (err) {
       // Silent catch to prevent showing connection modals or dialogs on focus changes
       console.debug('Failed to check account switch:', err);
+      // Reset session to prevent repeated prompts if the wallet is locked or unauthorized
+      resetSession();
     }
-  }, [address, walletId, setAddress, setBalance]);
+  }, [address, walletId, setAddress, setBalance, resetSession]);
 
   useEffect(() => {
     if (!address || !walletId) return;
@@ -44,12 +46,8 @@ export default function WalletSessionBootstrap() {
     // Check account on window focus
     window.addEventListener('focus', checkAccountChange);
 
-    // Also check on a periodic interval (every 5 seconds)
-    const interval = setInterval(checkAccountChange, 5000);
-
     return () => {
       window.removeEventListener('focus', checkAccountChange);
-      clearInterval(interval);
     };
   }, [address, walletId, checkAccountChange]);
 
