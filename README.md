@@ -9,7 +9,7 @@
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 [![Tech Stack](https://skillicons.dev/icons?i=nextjs,typescript,tailwind,react,rust&perline=10)](https://skillicons.dev)
 
 [![Stellar](https://img.shields.io/badge/Stellar-000000?style=for-the-badge&logo=stellar&logoColor=white)](https://stellar.org)
@@ -18,7 +18,7 @@
 
 ---
 
-## 📖 Product Overview & Problem Statement
+## Product Overview & Problem Statement
 
 ### The Problem
 Traditional rental deposit schemes are plagued by inefficiency, high transaction costs, lack of transparency, and unilateral hold-ups. Tenants frequently struggle to recover security deposits at lease termination, while landlords face complex administrative burdens, exposure to deposit disputes, and manual payout coordination.
@@ -28,7 +28,7 @@ Traditional rental deposit schemes are plagued by inefficiency, high transaction
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 The RentSafe frontend is a Next.js single-page application that queries the live ledger state directly from the Soroban RPC network, eliminating the need for private backend databases.
 
@@ -46,7 +46,7 @@ graph TD
 
 ---
 
-## 🛡️ Smart Contract Design
+## Smart Contract Design
 
 RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 
@@ -82,7 +82,7 @@ RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 
 ---
 
-## 🔄 Inter-Contract Communication Flow
+## Inter-Contract Communication Flow
 
 During a dispute resolution, the Escrow and Dispute contracts coordinate actions to secure the funds and lock states until resolved.
 
@@ -115,7 +115,7 @@ sequenceDiagram
 
 ---
 
-## ✨ Features
+## Features
 
 - **Decentralized Escrow**: Deposits are locked in the smart contract, preventing unilateral withholding.
 - **Role-Based Access Control (RBAC)**: Storage-backed roles for platform administration (`admin`) and dispute resolution (`arbitrator`).
@@ -137,7 +137,7 @@ sequenceDiagram
 
 ---
 
-## 🚀 Local Development Setup
+## Local Development Setup
 
 ### 1. Clone & Install
 ```bash
@@ -161,7 +161,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ---
 
-## ⚙️ Environment Variables Reference
+## Environment Variables Reference
 
 | Variable Name | Required | Description | Example Value |
 | :--- | :--- | :--- | :--- |
@@ -173,7 +173,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ---
 
-## 🧪 Testing
+## Testing
 
 We maintain high test coverage for both smart contracts and frontend flows.
 
@@ -213,11 +213,11 @@ Test Files  3 passed | 1 skipped (4)
      Tests  9 passed | 1 skipped (10)
   Duration  3.54s
 ```
-`<PASTE_TESTS_PASSING_SCREENSHOT_HERE>`
+![Test Verification](public/screenshots/tests.png)
 
 ---
 
-## 🤖 CI/CD Workflows
+## CI/CD Workflows
 
 We configure automated integrations on GitHub Actions:
 * **Pull Request Checks** (`pr-checks.yml`): Runs on all PRs targeting `main` or `master`. Executes eslint, typescript compilation checks, smart contract WASM builds, contract unit tests, and React/Vitest suites.
@@ -225,14 +225,14 @@ We configure automated integrations on GitHub Actions:
 
 ---
 
-## 🚢 Deployment
+## Deployment
 
 Contracts are deployed to the Stellar Testnet using the automated scripts inside `scripts/`.
 For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bahnishikhasingha/Documents/RentSafe/DEPLOYMENT.md)**.
 
 ---
 
-## 🔒 Security Considerations
+## Security Considerations
 
 * **Role-Based Access Control (RBAC)**: Critical operations (such as resolving disputes or upgrading contract bytecode) require explicit authorization. The addresses are validated against storage-backed role values rather than static configurations.
 * **Upgrade Authority**: Upgrades of contract code can only be authorized by an address possessing the `admin` role.
@@ -242,23 +242,29 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 
 ---
 
-## 📸 Screenshots
+## Screenshots
+
+### Product UI (Desktop View)
+![RentSafe Desktop UI Overview](public/screenshots/desktop-ui.png)
 
 ### Mobile Responsive UI (375px Viewport)
-`<PASTE_MOBILE_UI_SCREENSHOT_HERE>`
+![Mobile Responsive UI](public/screenshots/mobile-ui.png)
 
 ### CI/CD Pipeline Build Running
-`<PASTE_CICD_PIPELINE_SCREENSHOT_HERE>`
+![CI/CD Pipeline](public/screenshots/cicd.png)
 
 ### Test Verification
-`<PASTE_TEST_VERIFICATION_SCREENSHOT_HERE>`
+![Test Verification](public/screenshots/tests.png)
+
+### Analytics & Monitoring Setup
+![Vercel Analytics Dashboard](public/screenshots/analytics.png)
 
 ---
 
-## 🔗 Demos & Deployments
+## Demos & Deployments
 
-* **Live Demo Link**: `<PASTE_LIVE_DEMO_URL_HERE>`
-* **Demo Video Walkthrough**: `<PASTE_DEMO_VIDEO_URL_HERE>`
+* **Live Demo Link**: [https://rentsafe-nxx.vercel.app/](https://rentsafe-nxx.vercel.app/)
+* **Demo Video Walkthrough**: [https://youtu.be/1U_yuz7ShHk?si=IPk7D_g2LxCQKtod](https://youtu.be/1U_yuz7ShHk?si=IPk7D_g2LxCQKtod)
 
 ### Active Testnet Smart Contracts:
 * **Escrow Contract Address**: `CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F`
@@ -270,6 +276,31 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 
 ---
 
-## 📄 License
+## User Onboarding & Feedback
+
+> [!NOTE]
+> *This section holds placeholders for Level 4 submission requirements.*
+
+### Proof of 10+ User Wallet Interactions
+Below is the list of wallet addresses that participated in testing and interacting with the RentSafe contract during onboarding:
+* `<PLACEHOLDER: Add User Wallet Address 1>`
+* `<PLACEHOLDER: Add User Wallet Address 2>`
+* `<PLACEHOLDER: Add User Wallet Address 3>`
+* `<PLACEHOLDER: Add User Wallet Address 4>`
+* `<PLACEHOLDER: Add User Wallet Address 5>`
+* `<PLACEHOLDER: Add User Wallet Address 6>`
+* `<PLACEHOLDER: Add User Wallet Address 7>`
+* `<PLACEHOLDER: Add User Wallet Address 8>`
+* `<PLACEHOLDER: Add User Wallet Address 9>`
+* `<PLACEHOLDER: Add User Wallet Address 10>`
+
+### Basic User Feedback Summary
+* **Usability & Interface:** `<PLACEHOLDER: e.g., Users found the multi-agreement dashboard clean and easy to navigate. Suggestion received to simplify the Freighter connection prompt.>`
+* **Performance & Speed:** `<PLACEHOLDER: e.g., On-chain transaction confirmations were completed within 4–6 seconds on testnet.>`
+* **Onboarding & Walkthrough:** `<PLACEHOLDER: e.g., 100% of tested users successfully locked a test deposit and viewed their agreement detail page.>`
+
+---
+
+## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
