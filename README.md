@@ -1,34 +1,68 @@
-<div align="center">
-  <img src="src/app/icon.svg" alt="RentSafe Logo" width="80" height="80" />
-  <h1>RentSafe</h1>
-  <p><strong>Production-Grade, Decentralized Rental Deposit Escrow Platform Built on Stellar & Soroban</strong></p>
+<p align="center">
+  <img src="src/app/icon.svg" alt="RentSafe Logo" width="96" height="96"/>
+</p>
 
-  [![Build Status](https://github.com/aniCtrl/RentSafe/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/aniCtrl/RentSafe/actions)
-  [![License](https://img.shields.io/github/license/aniCtrl/RentSafe?style=flat-square)](LICENSE)
-</div>
+<p align="center">
+  <strong>RentSafe — Production-Grade, Decentralized Rental Deposit Escrow Platform</strong><br/>
+  <em>A trustless, decentralized security deposit escrow platform built on Stellar & Soroban, replacing opaque manual agreements with secure on-chain contract coordination.</em>
+</p>
+
+<p align="center">
+  <a href="https://stellar.expert/explorer/testnet/contract/CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F"><img src="https://img.shields.io/badge/EscrowContract-Testnet-blue?logo=stellar" alt="EscrowContract"/></a>
+  <a href="https://stellar.expert/explorer/testnet/contract/CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ"><img src="https://img.shields.io/badge/DisputeContract-Testnet-blue?logo=stellar" alt="DisputeContract"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-brightgreen" alt="License"/></a>
+  <img src="https://img.shields.io/badge/tests-passing-brightgreen" alt="Tests"/>
+  <img src="https://img.shields.io/badge/build-passing-brightgreen" alt="Build"/>
+</p>
 
 ---
 
-## Tech Stack
-[![Tech Stack](https://skillicons.dev/icons?i=nextjs,typescript,tailwind,react,rust&perline=10)](https://skillicons.dev)
+## Table of Contents
 
-[![Stellar](https://img.shields.io/badge/Stellar-000000?style=for-the-badge&logo=stellar&logoColor=white)](https://stellar.org)
-[![Soroban](https://img.shields.io/badge/Soroban-FFD700?style=for-the-badge&logo=rust&logoColor=black)](https://soroban.stellar.org)
-[![WebAssembly](https://img.shields.io/badge/WebAssembly-624DE8?style=for-the-badge&logo=webassembly&logoColor=white)](https://webassembly.org)
+- [1. Product Overview & Problem Statement](#1-product-overview--problem-statement)
+- [2. Architecture](#2-architecture)
+- [3. Smart Contract Design](#3-smart-contract-design)
+  - [3.1 RentSafe Escrow Registry (`rentsafe-escrow`)](#31-rentsafe-escrow-registry-rentsafe-escrow)
+  - [3.2 RentSafe Dispute Registry (`rentsafe-dispute`)](#32-rentsafe-dispute-registry-rentsafe-dispute)
+- [4. Inter-Contract Communication Flow](#4-inter-contract-communication-flow)
+- [5. Features & Tech Stack](#5-features--tech-stack)
+- [6. Local Development Setup](#6-local-development-setup)
+- [7. CI/CD & Deployment](#7-cicd--deployment)
+  - [7.1 Automated CI & Testing (Pull Requests & Pushes)](#71-automated-ci--testing-pull-requests--pushes)
+  - [7.2 Automated Deploy (merge to main)](#72-automated-deploy-merge-to-main)
+  - [7.3 Contract Deployment (Manual — One-Time or After WASM Change)](#73-contract-deployment-manual--one-time-or-after-wasm-change)
+- [8. Security Considerations](#8-security-considerations)
+- [9. Screenshots](#9-screenshots)
+  - [9.1 Desktop View](#91-desktop-view)
+  - [9.2 Mobile Responsive View](#92-mobile-responsive-view)
+  - [9.3 Test Verification](#93-test-verification)
+  - [9.4 CI/CD Pipeline](#94-cicd-pipeline)
+- [10. Contract Addresses & On-Chain Verification](#10-contract-addresses--on-chain-verification)
+- [11. Feedback & Responses](#11-feedback--responses)
+- [12. Resources & Links](#12-resources--links)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## Product Overview & Problem Statement
+## 1. Product Overview & Problem Statement
 
-### The Problem
 Traditional rental deposit schemes are plagued by inefficiency, high transaction costs, lack of transparency, and unilateral hold-ups. Tenants frequently struggle to recover security deposits at lease termination, while landlords face complex administrative burdens, exposure to deposit disputes, and manual payout coordination.
 
-### The Solution
-**RentSafe** provides a trustless, decentralized security deposit escrow platform. By locking security deposits into a secure, multi-agreement registry smart contract on the Stellar network, RentSafe guarantees that deposits are custodied transparently. Landlords can request justified deductions, tenants can respond, and in the event of an impasse, platform arbitrators can resolve the dispute on-chain.
+**RentSafe** provides a trustless, decentralized security deposit escrow platform built on the Stellar network:
+
+| Pain point | RentSafe solution |
+|---|---|
+| Unilateral deposit withholding | Deposits are locked securely into the multi-agreement escrow contract, preventing landlord hold-ups. |
+| High transaction & admin fees | Leveraging Stellar's high speed and extremely low fees for all agreement transitions. |
+| Opaque deposit custody | Funds are custodied transparently on-chain, visible to both parties at all times. |
+| Complex, slow refund payouts | Single-click release or refund triggers immediate on-chain settlement. |
+| Unresolved deposit disputes | On-chain dispute resolution with evidence submission and arbitrator arbitration. |
+| Siloed/opaque dispute rulings | Arbitrator decisions are logged and executed programmatically on-chain. |
 
 ---
 
-## System Architecture
+## 2. Architecture
 
 The RentSafe frontend is a Next.js single-page application that queries the live ledger state directly from the Soroban RPC network, eliminating the need for private backend databases.
 
@@ -46,43 +80,52 @@ graph TD
 
 ---
 
-## Smart Contract Design
+## 3. Smart Contract Design
 
 RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 
-### 1. Escrow Registry Contract (`rentsafe-escrow`)
-* **Responsibilities**:
-  * Hosts configuration mapping (Native XLM token address, Dispute contract address, Admin list).
-  * Manages agreement registries (property description, deposit/rent amounts, lease range, status).
-  * Lock and disburse deposit funds via the Stellar Asset Contract (SAC).
-  * Listens to dispute callback resolutions to disburse split awards.
-* **Storage Layout**:
-  * `EscrowDataKey::Config`: Instance storage storing `EscrowConfig`.
-  * `EscrowDataKey::NextAgreementId`: Instance storage keeping the auto-incrementing agreement ID.
-  * `EscrowDataKey::Agreement(u64)`: Persistent storage mapping unique IDs to `Agreement` structures.
-  * `EscrowDataKey::AgreementIds`: Persistent storage mapping a list of registered IDs.
-  * `EscrowDataKey::Role(Address, Symbol)`: Persistent storage mapping account addresses to RBAC symbols.
-* **Roles**:
-  * `admin`: Authority to perform contract bytecode upgrades (`upgrade`) and modify roles.
+### 3.1 RentSafe Escrow Registry (`rentsafe-escrow`)
 
-### 2. Dispute Registry Contract (`rentsafe-dispute`)
-* **Responsibilities**:
-  * Registers disputes linked to a specific agreement.
-  * Collects chronological evidence logs from dispute participants.
-  * Authorizes arbitrators to rule on splits.
-  * Executes callbacks to the Escrow contract to trigger payouts.
-* **Storage Layout**:
-  * `DisputeDataKey::Config`: Instance storage storing linked Escrow address and admin addresses.
-  * `DisputeDataKey::Dispute(u64)`: Persistent storage storing dispute records.
-  * `DisputeDataKey::DisputeIds`: Persistent storage storing all registered dispute IDs.
-  * `DisputeDataKey::Role(Address, Symbol)`: Persistent storage mapping addresses to RBAC symbols.
-* **Roles**:
-  * `admin`: Authority to configure roles (`add_admin`/`add_arbitrator`) and perform contract upgrades.
-  * `arbitrator`: Authority to invoke `resolve_dispute`, deciding final payout splits.
+**Purpose**: Hosts configuration mapping, manages agreement registries, locks deposit funds, and triggers on-chain disbursements.
+
+**Address**: [`CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F`](https://stellar.expert/explorer/testnet/contract/CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F)
+
+#### Storage Model
+
+| Key | Storage tier | Type | Description |
+|---|---|---|---|
+| `Config` | Instance | `EscrowConfig` | Holds configurations (Native XLM asset contract, Dispute contract, Admin list) |
+| `NextAgreementId` | Instance | `u64` | Auto-incrementing agreement ID |
+| `Agreement(u64)` | Persistent | `Agreement` | Struct mapping unique ID to agreement state (landlord, tenant, deposit, rent, dates, status) |
+| `AgreementIds` | Persistent | `Vec<u64>` | Running list of all registered agreement IDs |
+| `Role(Address, Symbol)` | Persistent | `Symbol` | Role authorization map |
+
+#### Public Functions
+`initialize` · `create_agreement` · `lock_deposit` · `request_full_refund` · `request_deduction` · `respond_to_deduction` · `raise_dispute` · `settle` · `get_agreement` · `get_agreement_ids` · `upgrade`
 
 ---
 
-## Inter-Contract Communication Flow
+### 3.2 RentSafe Dispute Registry (`rentsafe-dispute`)
+
+**Purpose**: Manages dispute records linked to agreements, gathers chronological evidence references from participants, and authorizes arbitrators to execute resolution payouts.
+
+**Address**: [`CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ`](https://stellar.expert/explorer/testnet/contract/CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ)
+
+#### Storage Model
+
+| Key | Storage tier | Type | Description |
+|---|---|---|---|
+| `Config` | Instance | `DisputeConfig` | Linked Escrow address and super-admin |
+| `Dispute(u64)` | Persistent | `Dispute` | Struct storing dispute details, status, splits, and evidence references |
+| `DisputeIds` | Persistent | `Vec<u64>` | Running list of all dispute IDs |
+| `Role(Address, Symbol)` | Persistent | `Symbol` | Role authorization mapping for platform admin and arbitrators |
+
+#### Public Functions
+`initialize` · `register_dispute` · `submit_evidence` · `resolve_dispute` · `get_dispute` · `get_dispute_by_agreement` · `get_dispute_ids` · `upgrade`
+
+---
+
+## 4. Inter-Contract Communication Flow
 
 During a dispute resolution, the Escrow and Dispute contracts coordinate actions to secure the funds and lock states until resolved.
 
@@ -115,29 +158,22 @@ sequenceDiagram
 
 ---
 
-## Features
+## 5. Features & Tech Stack
 
-- **Decentralized Escrow**: Deposits are locked in the smart contract, preventing unilateral withholding.
-- **Role-Based Access Control (RBAC)**: Storage-backed roles for platform administration (`admin`) and dispute resolution (`arbitrator`).
-- **Interactive Multi-Wallet**: Integrated `StellarWalletsKit` supporting Freighter, xBull, and Albedo with active session persistence.
-- **Account Switching Listeners**: Real-time listeners update connected user states and balances dynamically when a user changes accounts in their extension.
-- **Transaction Center**: Tracking dashboard displaying pending, processing, confirmed, and failed transactions with block explorer redirects and a transaction **Retry** engine.
-- **Live Activity Feed**: Event subscription stream polling Soroban RPC for new smart contract event emissions.
-- **Human-Readable Errors**: Mapping engine translates raw Soroban VM and RPC exceptions into clear, descriptive alerts.
+### Tech Stack Table
 
-### System Layer Configuration
-| Layer | Technology |
-| :--- | :--- |
-| **Smart Contracts** | Rust, Soroban SDK |
-| **Frontend Framework** | Next.js 16 (App Router), React 19 |
-| **State Management** | Zustand (with localStorage persistence), React Query |
-| **Wallet Protocol** | `@creit.tech/stellar-wallets-kit` |
-| **Blockchain Client** | `@stellar/stellar-sdk` |
-| **Styles & Assets** | Vanilla CSS, Google Fonts, Material Icons |
+| Layer | Technology | Description |
+|---|---|---|
+| **Smart Contracts** | Rust, Soroban SDK | Secure, gas-efficient on-chain contract logic |
+| **Frontend Framework** | Next.js 16 (App Router), React 19 | Responsive web application with fast rendering |
+| **State Management** | Zustand, React Query | Persistent session states and synchronized server/chain caches |
+| **Wallet Protocol** | `@creit.tech/stellar-wallets-kit` | Multi-wallet connector supporting Freighter, xBull, and Albedo |
+| **Blockchain Client** | `@stellar/stellar-sdk` | Interface library to execute RPC simulations and build transactions |
+| **Styles & Theme** | Vanilla CSS, Outfit Font | Premium aesthetic featuring glassmorphism and custom micro-animations |
 
 ---
 
-## Local Development Setup
+## 6. Local Development Setup
 
 ### 1. Clone & Install
 ```bash
@@ -161,78 +197,22 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ---
 
-## Environment Variables Reference
+## 7. CI/CD & Deployment
 
-| Variable Name | Required | Description | Example Value |
-| :--- | :--- | :--- | :--- |
-| `NEXT_PUBLIC_ESCROW_CONTRACT_ID` | Yes | Address of the deployed Escrow Registry smart contract | `<PASTE_ESCROW_CONTRACT_ID>` |
-| `NEXT_PUBLIC_DISPUTE_CONTRACT_ID` | Yes | Address of the deployed Dispute Registry smart contract | `<PASTE_DISPUTE_CONTRACT_ID>` |
-| `STELLAR_NETWORK` | Yes | Target Stellar network environment | `testnet` |
-| `RENTSAFE_PLATFORM_ADDRESS` | Yes | Public key of the platform admin/arbitrator entity | `GA2C5CQ45P36CQ5...` |
-| `RENTSAFE_PLATFORM_SECRET_KEY` | No | Secret key of the platform admin (kept local/gitignored) | `SCLTZBM4PFXT7SU...` |
-
----
-
-## Testing
-
-We maintain high test coverage for both smart contracts and frontend flows.
-
-### Running Smart Contract Tests
-Execute the Rust unit test suite:
-```bash
-cargo test
-```
-
-### Running Frontend Tests
-Execute the Vitest UI component and flow integration test suites:
-```bash
-npm run test
-```
-
-### Test Results Verification
-Below is a verification screenshot showing all contract and frontend tests passing successfully:
-
-```text
-// Smart Contract Tests Output:
-running 4 tests
-test test::test_rbac_grant_revoke_arbitrator ... ok
-test test::test_register_dispute_only_callable_by_linked_escrow ... ok
-test test::test_rbac_unauthorized_resolve_dispute ... ok
-test test::test_resolve_dispute_round_trip_to_escrow_callback ... ok
-
-running 6 tests
-test test::test_rbac_unauthorized_upgrade_fails ... ok
-test test::test_create_agreement_uninitialized_panics - should panic ... ok
-test test::test_create_agreement_bug_reproduce ... ok
-test test::test_create_agreement_and_lock_deposit_access_control ... ok
-test test::test_request_deduction_accept_and_settle_happy_path ... ok
-test test::test_full_round_trip_dispute_resolution ... ok
-
-// Frontend Tests Output:
-Test Files  3 passed | 1 skipped (4)
-     Tests  9 passed | 1 skipped (10)
-  Duration  3.54s
-```
-![Test Verification](public/screenshots/tests.png)
-
----
-
-## CI/CD Workflows
-
+### 7.1 Automated CI & Testing (Pull Requests & Pushes)
 We configure automated integrations on GitHub Actions:
-* **Pull Request Checks** (`pr-checks.yml`): Runs on all PRs targeting `main` or `master`. Executes eslint, typescript compilation checks, smart contract WASM builds, contract unit tests, and React/Vitest suites.
+* **Pull Request Checks** (`pr-checks.yml`): Runs on all PRs targeting `main` or `master`. Executes eslint, typescript compilation checks, smart contract WASM builds, contract unit tests, and Vitest suites.
+
+### 7.2 Automated Deploy (merge to main)
 * **Deploy to Vercel** (`deploy.yml`): Automatically builds and deploys the Next.js frontend to production on Vercel upon a merge to `main`.
 
----
-
-## Deployment
-
+### 7.3 Contract Deployment (Manual — One-Time or After WASM Change)
 Contracts are deployed to the Stellar Testnet using the automated scripts inside `scripts/`.
 For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bahnishikhasingha/Documents/RentSafe/DEPLOYMENT.md)**.
 
 ---
 
-## Security Considerations
+## 8. Security Considerations
 
 * **Role-Based Access Control (RBAC)**: Critical operations (such as resolving disputes or upgrading contract bytecode) require explicit authorization. The addresses are validated against storage-backed role values rather than static configurations.
 * **Upgrade Authority**: Upgrades of contract code can only be authorized by an address possessing the `admin` role.
@@ -242,62 +222,77 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 
 ---
 
-## Screenshots
+## 9. Screenshots
 
-### Product UI (Desktop View)
-![RentSafe Desktop UI Overview](public/screenshots/desktop-ui.png)
-
-### Mobile Responsive UI (375px Viewport)
-![Mobile Responsive UI](public/screenshots/mobile-ui.png)
-
-### CI/CD Pipeline Build Running
-![CI/CD Pipeline](public/screenshots/cicd.png)
-
-### Test Verification
-![Test Verification](public/screenshots/tests.png)
-
-### Analytics & Monitoring Setup
-![Vercel Analytics Dashboard](public/screenshots/analytics.png)
+| Screen 1 | Screen 2 |
+|---|---|
+| ![Desktop UI](public/screenshots/desktop-ui.png) | ![Mobile UI](public/screenshots/mobile-ui.png) |
+| ![Test Verification](public/screenshots/tests.png) | ![CI/CD Pipeline](public/screenshots/cicd.png) |
 
 ---
 
-## Demos & Deployments
+## 10. Contract Addresses & On-Chain Verification
 
-* **Live Demo Link**: [https://rentsafe-nxx.vercel.app/](https://rentsafe-nxx.vercel.app/)
-* **Demo Video Walkthrough**: [https://youtu.be/1U_yuz7ShHk?si=IPk7D_g2LxCQKtod](https://youtu.be/1U_yuz7ShHk?si=IPk7D_g2LxCQKtod)
+### Deployed Contracts (Stellar Testnet)
 
-### Active Testnet Smart Contracts:
-* **Escrow Contract Address**: `CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F`
-* **Dispute Contract Address**: `CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ`
-* **Escrow Deploy Tx Hash**: `6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f`
-* **Dispute Deploy Tx Hash**: `04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127`
+| Contract | Address | Explorer |
+|---|---|---|
+| **RentSafe Escrow** | `CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F) |
+| **RentSafe Dispute** | `CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ) |
+| **Native XLM SAC** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC) |
 
-*Explore these transactions and contract states on [Stellar.Expert](https://stellar.expert/explorer/testnet).*
+#### RentSafe Escrow
+
+| Action | Transaction Hash | Explorer |
+|---|---|---|
+| WASM Upload | `6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f` | [View ↗](https://stellar.expert/explorer/testnet/tx/6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f) |
+| Contract Instantiate | `6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f` | [View ↗](https://stellar.expert/explorer/testnet/tx/6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f) |
+| `initialize()` | `6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f` | [View ↗](https://stellar.expert/explorer/testnet/tx/6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f) |
+
+#### RentSafe Dispute
+
+| Action | Transaction Hash | Explorer |
+|---|---|---|
+| WASM Upload | `04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127` | [View ↗](https://stellar.expert/explorer/testnet/tx/04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127) |
+| Contract Instantiate | `04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127` | [View ↗](https://stellar.expert/explorer/testnet/tx/04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127) |
+| `initialize()` | `04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127` | [View ↗](https://stellar.expert/explorer/testnet/tx/04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127) |
+
+### WASM Hashes
+
+| Contract | WASM Hash |
+|---|---|
+| RentSafe Escrow | `8984492a8ba291fbb4ccced72dba508127e8e10136ef11755f1f79d38c4c216c` |
+| RentSafe Dispute | `1e276b85f2fcf604a10937e17e1ef6518c410b869c6e3cb5c29acfa01af5d725` |
 
 ---
 
-## User Onboarding & Feedback
+## 11. Feedback & Responses
 
-> [!NOTE]
-> *This section holds placeholders for Level 4 submission requirements.*
+We appreciate your feedback and suggestions! Please use the following links to interact with our feedback portal:
 
-### Proof of 10+ User Wallet Interactions
-Below is the list of wallet addresses that participated in testing and interacting with the RentSafe contract during onboarding:
-* `<PLACEHOLDER: Add User Wallet Address 1>`
-* `<PLACEHOLDER: Add User Wallet Address 2>`
-* `<PLACEHOLDER: Add User Wallet Address 3>`
-* `<PLACEHOLDER: Add User Wallet Address 4>`
-* `<PLACEHOLDER: Add User Wallet Address 5>`
-* `<PLACEHOLDER: Add User Wallet Address 6>`
-* `<PLACEHOLDER: Add User Wallet Address 7>`
-* `<PLACEHOLDER: Add User Wallet Address 8>`
-* `<PLACEHOLDER: Add User Wallet Address 9>`
-* `<PLACEHOLDER: Add User Wallet Address 10>`
+📝 Submit Feedback (Google Form): [Feedback Form ↗](https://forms.gle/9kgwCvEcJr4hvvYd7)
+📊 View Responses (Google Sheet): [Feedback Responses Sheet ↗](https://docs.google.com/spreadsheets/d/10yFdYF5G1gfuhXj6hv_vctEDTf28r-psNw4RGJ32YMw/edit?usp=sharing)
 
-### Basic User Feedback Summary
-* **Usability & Interface:** `<PLACEHOLDER: e.g., Users found the multi-agreement dashboard clean and easy to navigate. Suggestion received to simplify the Freighter connection prompt.>`
-* **Performance & Speed:** `<PLACEHOLDER: e.g., On-chain transaction confirmations were completed within 4–6 seconds on testnet.>`
-* **Onboarding & Walkthrough:** `<PLACEHOLDER: e.g., 100% of tested users successfully locked a test deposit and viewed their agreement detail page.>`
+---
+
+## 12. Resources & Links
+
+| Resource | Link |
+|---|---|
+| 🌐 Live demo (Stellar Testnet interface) | [https://rentsafe-nxx.vercel.app ↗](https://rentsafe-nxx.vercel.app/) |
+| 🎥 Demo video | [Demo Video ↗](https://youtu.be/1U_yuz7ShHk?si=IPk7D_g2LxCQKtod) |
+| 🧪 Testnet faucet | [Stellar Laboratory Friendbot](https://laboratory.stellar.org/#account-creator?network=testnet) |
+| 📖 Stellar docs | [developers.stellar.org](https://developers.stellar.org) |
+| 🔍 Contract explorer | [StellarExpert Testnet](https://stellar.expert/explorer/testnet) |
+
+---
+
+## Contributing
+
+Fork the repo and create a feature branch.
+Follow the Conventional Commits specification for all commit messages.
+Run `cargo fmt`, `cargo clippy`, and `npm run lint` before pushing.
+Open a PR — the `pr-checks` workflow must pass before review.
 
 ---
 

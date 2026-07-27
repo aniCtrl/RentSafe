@@ -114,16 +114,16 @@ def main():
         json.dump(meta, f, indent=2)
 
     # 4. Update files programmatically
-    print("Updating configuration files & README...")
+    print("Updating configuration files, README, and source defaults...")
     update_file_placeholders(".env", escrow_id, dispute_id, network)
     update_file_placeholders(".env.example", escrow_id, dispute_id, network)
-    update_readme_placeholders("README.md", escrow_id, dispute_id, network)
+    update_readme("README.md", meta)
+    update_source_defaults(meta)
 
     print("Initialization completed successfully!")
 
 def update_file_placeholders(filepath, escrow_id, dispute_id, network):
     if not os.path.exists(filepath):
-        # Generate default .env from .env.example template if it does not exist
         if filepath == ".env":
             content = f"NEXT_PUBLIC_ESCROW_CONTRACT_ID={escrow_id}\nNEXT_PUBLIC_DISPUTE_CONTRACT_ID={dispute_id}\nSTELLAR_NETWORK={network}\n"
             with open(filepath, "w") as f:
@@ -134,30 +134,85 @@ def update_file_placeholders(filepath, escrow_id, dispute_id, network):
     with open(filepath, "r") as f:
         content = f.read()
 
-    # Replaces placeholders
     content = content.replace("{{ESCROW_CONTRACT_ID}}", escrow_id)
     content = content.replace("{{DISPUTE_CONTRACT_ID}}", dispute_id)
-    
-    # Also support replacing existing values if run repeatedly
     content = re.sub(r"NEXT_PUBLIC_ESCROW_CONTRACT_ID=.*", f"NEXT_PUBLIC_ESCROW_CONTRACT_ID={escrow_id}", content)
     content = re.sub(r"NEXT_PUBLIC_DISPUTE_CONTRACT_ID=.*", f"NEXT_PUBLIC_DISPUTE_CONTRACT_ID={dispute_id}", content)
 
     with open(filepath, "w") as f:
         f.write(content)
 
-def update_readme_placeholders(filepath, escrow_id, dispute_id, network):
+def update_readme(filepath, meta):
     if not os.path.exists(filepath):
         return
 
     with open(filepath, "r") as f:
         content = f.read()
 
-    # Replaces placeholders in Markdown table or links
+    escrow_id = meta["escrow"]["address"]
+    dispute_id = meta["dispute"]["address"]
+    escrow_hash = meta["escrow"].get("wasm_hash", "")
+    dispute_hash = meta["dispute"].get("wasm_hash", "")
+    init_escrow_tx = meta.get("interactions", {}).get("init_escrow_tx", "")
+    init_dispute_tx = meta.get("interactions", {}).get("init_dispute_tx", "")
+
     content = content.replace("{{ESCROW_CONTRACT_ID}}", escrow_id)
     content = content.replace("{{DISPUTE_CONTRACT_ID}}", dispute_id)
 
+    content = re.sub(
+        r"(\|\s*\*\*RentSafe Escrow\*\*\s*\|\s*`)[^`]+(`\s*\|\s*\[StellarExpert ↗\]\(https://stellar\.expert/explorer/[^/]+/contract/)[^`\)]+(\))",
+        rf"\g<1>{escrow_id}\g<2>{escrow_id}\3",
+        content
+    )
+    content = re.sub(
+        r"(\|\s*\*\*RentSafe Dispute\*\*\s*\|\s*`)[^`]+(`\s*\|\s*\[StellarExpert ↗\]\(https://stellar\.expert/explorer/[^/]+/contract/)[^`\)]+(\))",
+        rf"\g<1>{dispute_id}\g<2>{dispute_id}\3",
+        content
+    )
+
+    if escrow_hash:
+        content = re.sub(
+            r"(\|\s*RentSafe Escrow\s*\|\s*`)[^`]+(`)",
+            rf"\g<1>{escrow_hash}\2",
+            content
+        )
+    if dispute_hash:
+        content = re.sub(
+            r"(\|\s*RentSafe Dispute\s*\|\s*`)[^`]+(`)",
+            rf"\g<1>{dispute_hash}\2",
+            content
+        )
+
     with open(filepath, "w") as f:
         f.write(content)
+
+def update_source_defaults(meta):
+    escrow_id = meta["escrow"]["address"]
+    dispute_id = meta["dispute"]["address"]
+    escrow_hash = meta["escrow"].get("wasm_hash", "")
+    dispute_hash = meta["dispute"].get("wasm_hash", "")
+
+    stellar_ts = "src/lib/stellar.ts"
+    if os.path.exists(stellar_ts):
+        with open(stellar_ts, "r") as f:
+            content = f.read()
+        content = re.sub(r"(DEFAULT_ESCROW_ID\s*=.*\|\|\s*')[^']+'", rf"\1{escrow_id}'", content)
+        content = re.sub(r"(DEFAULT_DISPUTE_ID\s*=.*\|\|\s*')[^']+'", rf"\1{dispute_id}'", content)
+        if escrow_hash:
+            content = re.sub(r"(DEFAULT_ESCROW_WASM_HASH\s*=.*\|\|\s*')[^']+'", rf"\1{escrow_hash}'", content)
+        if dispute_hash:
+            content = re.sub(r"(DEFAULT_DISPUTE_WASM_HASH\s*=.*\|\|\s*')[^']+'", rf"\1{dispute_hash}'", content)
+        with open(stellar_ts, "w") as f:
+            f.write(content)
+
+    test_file = "src/__tests__/integration.test.ts"
+    if os.path.exists(test_file):
+        with open(test_file, "r") as f:
+            content = f.read()
+        content = re.sub(r"(ESCROW_CONTRACT_ID\s*=.*\|\|\s*')[^']+'", rf"\1{escrow_id}'", content)
+        content = re.sub(r"(DISPUTE_CONTRACT_ID\s*=.*\|\|\s*')[^']+'", rf"\1{dispute_id}'", content)
+        with open(test_file, "w") as f:
+            f.write(content)
 
 if __name__ == "__main__":
     main()

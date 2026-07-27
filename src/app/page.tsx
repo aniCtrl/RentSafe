@@ -202,18 +202,9 @@ function LandingPage() {
           <div className="bg-[#e2e2e2] p-8 md:p-12 rounded-[32px] grid grid-cols-1 md:grid-cols-2 gap-8 items-center border border-[#c4c7c7]/30">
             <div>
               <h2 className="text-4xl font-extrabold text-[#000000] tracking-tight mb-4">$0 Disputes Escaped</h2>
-              <p className="text-sm text-[#000000] italic leading-relaxed mb-6">
-                "RentSafe has completely removed the friction and anxiety from managing security deposits. The automation is flawless."
+              <p className="text-sm text-[#000000] leading-relaxed mb-6">
+                RentSafe has completely removed the friction and anxiety from managing security deposits. By utilizing smart contracts, automated sign-offs guarantee that funds are custodied and returned without delays.
               </p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#dadada] rounded-full flex items-center justify-center border-2 border-[#ffffff]">
-                  <span className="material-symbols-outlined text-[#000000] text-lg">person</span>
-                </div>
-                <div>
-                  <p className="font-bold text-xs text-[#000000]">Sarah Jenkins</p>
-                  <p className="text-[10px] text-[#585f6c]">Property Manager</p>
-                </div>
-              </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
