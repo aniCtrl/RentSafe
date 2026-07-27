@@ -124,7 +124,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                     <span>Property details — visible to landlord &amp; tenant only</span>
                   </div>
                 )}
-                <div className="text-xs text-[#585f6c] font-mono mt-1 select-all">Shared contract: {agreement.contractId}</div>
+                <div className="text-xs text-[#585f6c] font-mono mt-1 select-all break-all">Shared contract: {agreement.contractId}</div>
               </div>
 
               <div className="flex flex-col items-end shrink-0">
@@ -431,7 +431,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                                 <span>•</span>
                                 <span>{formatTimestamp(entry.submittedAt)}</span>
                               </div>
-                              <p className="text-[#1a1c1c] break-words">{entry.evidenceRef}</p>
+                              <p className="text-[#1a1c1c] break-all">{entry.evidenceRef}</p>
                             </div>
                           ))}
                         </div>
