@@ -128,13 +128,17 @@ function convertArgsForMethod(method: string, args: unknown[]): any[] {
   });
 }
 
-function extractReturnValue(resultMetaXdr?: string | null) {
+function extractReturnValue(resultMetaXdr?: any) {
   if (!resultMetaXdr) return undefined;
 
   try {
-    const meta = xdr.TransactionMeta.fromXDR(resultMetaXdr, 'base64') as unknown as {
-      v3?: () => { sorobanMeta?: () => { returnValue?: () => unknown } };
-    };
+    let meta: any;
+    if (typeof resultMetaXdr === 'string') {
+      meta = xdr.TransactionMeta.fromXDR(resultMetaXdr, 'base64');
+    } else {
+      meta = resultMetaXdr;
+    }
+
     const sorobanMeta = meta.v3?.()?.sorobanMeta?.();
     const returnValue = sorobanMeta?.returnValue?.();
     return returnValue ? scValToNative(returnValue as Parameters<typeof scValToNative>[0]) : undefined;
