@@ -209,7 +209,10 @@ We configure automated CI/CD workflows on GitHub Actions (`.github/workflows/pr-
 * **Deploy to Vercel** (`deploy.yml`): Automatically builds and deploys the Next.js frontend to production on Vercel upon a merge to `main`.
 
 ### 7.3 Contract Deployment (Manual — One-Time or After WASM Change)
-Contracts are deployed to the Stellar Testnet using the automated scripts inside `scripts/`.
+Contracts are deployed and initialized on the Stellar Testnet in one step using the pure-bash deployment script:
+```bash
+./scripts/deploy.sh testnet rentsafe-deployer-live rentsafe-admin-live
+```
 For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bahnishikhasingha/Documents/RentSafe/DEPLOYMENT.md)**.
 
 ---
@@ -239,8 +242,8 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 
 | Contract | Address | Explorer |
 |---|---|---|
-| **RentSafe Escrow** | `CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F) |
-| **RentSafe Dispute** | `CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ) |
+| **RentSafe Escrow** | `CCAJ6VCVS7VOKPIIMJ7KI523EAKIDBQ3JNEC3OQ2XNL6FWER2FHGDD25` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CCAJ6VCVS7VOKPIIMJ7KI523EAKIDBQ3JNEC3OQ2XNL6FWER2FHGDD25) |
+| **RentSafe Dispute** | `CDI5FA3JE6SEY7IE34C6LFNIPVFB3D4KA43NASQO55C4YRTIOCVCWQQA` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CDI5FA3JE6SEY7IE34C6LFNIPVFB3D4KA43NASQO55C4YRTIOCVCWQQA) |
 | **Native XLM SAC** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC) |
 
 #### RentSafe Escrow
