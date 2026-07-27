@@ -210,11 +210,12 @@ export async function readContractView(contractId: string, method: string, args:
       .build();
 
     const sim = await server.simulateTransaction(transaction);
-    if (rpc.Api.isSimulationError(sim)) {
+    if ('error' in sim && sim.error) {
       throw new Error(`Simulation error for ${method}: ${sim.error}`);
     }
-    if (sim.result?.retval) {
-      return scValToNative(sim.result?.retval);
+    const successSim = sim as rpc.Api.SimulateTransactionSuccessResponse;
+    if (successSim.result?.retval) {
+      return scValToNative(successSim.result.retval);
     }
     throw new Error('No return value from simulation');
   } catch (error) {

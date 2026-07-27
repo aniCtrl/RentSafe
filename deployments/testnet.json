@@ -14,7 +14,7 @@
     "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
   },
   "interactions": {
-    "init_dispute_tx": "null",
-    "init_escrow_tx": "null"
+    "init_dispute_tx": "ALREADY_INITIALIZED",
+    "init_escrow_tx": "ALREADY_INITIALIZED"
   }
 }
