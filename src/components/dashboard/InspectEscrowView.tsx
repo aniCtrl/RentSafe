@@ -108,31 +108,40 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="bg-[#ffffff] rounded-[24px] p-6 shadow-sm border border-[#e2e2e2] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-[#000000]">
-                  {formatAgreementId(agreement.agreementId, agreement.createdAt)}
-                </h3>
-                {(role === 'Landlord' || role === 'Tenant') ? (
-                  <div className="flex items-center gap-1.5 text-xs text-[#585f6c] mt-1 font-semibold">
-                    <span className="material-symbols-outlined text-sm">apartment</span>
-                    <span>{agreement.propertyDetails}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-xs text-[#747878] mt-1">
-                    <span className="material-symbols-outlined text-sm">lock</span>
-                    <span>Property details — visible to landlord &amp; tenant only</span>
-                  </div>
-                )}
-                <div className="text-xs text-[#585f6c] font-mono mt-1 select-all break-all">Shared contract: {agreement.contractId}</div>
-              </div>
+            <div className="bg-[#ffffff] rounded-[24px] p-6 shadow-sm border border-[#e2e2e2] space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e2e2e2] pb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-[#000000]">
+                    {formatAgreementId(agreement.agreementId, agreement.createdAt)}
+                  </h3>
+                  {(role === 'Landlord' || role === 'Tenant') ? (
+                    <div className="flex items-center gap-1.5 text-xs text-[#585f6c] mt-0.5 font-semibold">
+                      <span className="material-symbols-outlined text-sm">apartment</span>
+                      <span>{agreement.propertyDetails}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-xs text-[#747878] mt-0.5">
+                      <span className="material-symbols-outlined text-sm">lock</span>
+                      <span>Property details — visible to landlord &amp; tenant only</span>
+                    </div>
+                  )}
+                </div>
 
-              <div className="flex flex-col items-end shrink-0">
-                <span className="text-[10px] font-bold text-[#585f6c] uppercase tracking-wider mb-1">Deposit</span>
-                <span className="text-2xl font-black text-[#000000]">{formatStroopsToXlm(agreement.depositAmount)} XLM</span>
-                <div className="mt-2 bg-[#f3f3f3] border border-[#c4c7c7]/50 rounded-full px-3 py-1 text-[10px] font-bold uppercase text-[#000000] flex items-center gap-1">
+                <div className="bg-[#f3f3f3] border border-[#c4c7c7]/50 rounded-full px-3 py-1 text-[10px] font-bold uppercase text-[#000000] flex items-center gap-1.5 shrink-0">
                   <div className="w-1.5 h-1.5 bg-[#000000] rounded-full" />
                   <span>State: {AGREEMENT_STATUS_LABELS[agreement.status]}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 pt-1">
+                <div>
+                  <span className="text-[10px] font-bold text-[#585f6c] uppercase tracking-wider block mb-1">Locked Deposit</span>
+                  <span className="text-2xl md:text-3xl font-black text-[#000000] block">{formatStroopsToXlm(agreement.depositAmount)} XLM</span>
+                </div>
+
+                <div className="w-full md:w-auto text-xs text-[#585f6c] bg-[#f8f9fa] border border-[#e2e2e2] rounded-xl p-3">
+                  <span className="text-[10px] font-bold text-[#747878] uppercase tracking-wider block mb-0.5">Shared Escrow Contract</span>
+                  <span className="font-mono text-[11px] text-[#000000] break-all select-all block">{agreement.contractId}</span>
                 </div>
               </div>
             </div>
