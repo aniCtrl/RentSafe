@@ -1,15 +1,13 @@
 {
   "network": "testnet",
-  "timestamp": "2026-07-27T02:26:00Z",
+  "timestamp": "2026-07-27T12:58:49Z",
   "escrow": {
-    "address": "CBPI35R5GHDJOVGE6CET2FKDJ2I77KCKOXWQ62NHGQN4YCV3MS7OS2Q7",
-    "wasm_hash": "91394c41b75a32ed0a6b60bdedcead1b3ebe41daeb9d35cc41182180318ac83a",
-    "deploy_tx": "efdf43f5741afb8ab6c7a76da41faf707c39d184173dfb9581e9bbd924489250"
+    "address": "CCFATHQC6KASED4FK3V4IYSTN2ODHFC2AW635BXUD66OLPVICA2WN3AG",
+    "wasm_hash": "91394c41b75a32ed0a6b60bdedcead1b3ebe41daeb9d35cc41182180318ac83a"
   },
   "dispute": {
-    "address": "CCTC5ZQPSXD6DVXNRTJBTJC32PTPAGAWQEBPVKJHQAI5UZVS54TF4BSX",
-    "wasm_hash": "4257cfdae86f50c2081f32e2e9e5c877518cdcf47ddab3135085dad64bb078e5",
-    "deploy_tx": "c7365508444432d169a2f7baec854e8f3f6863f730f5d0863bc15689cf9a16e2"
+    "address": "CAEPHREYA4AFHY3TVFC2PM5ARRAMNHYLJZQOBX6255T5ASEE3BBQ5KHO",
+    "wasm_hash": "0195694beeed00b8e012559132361ff425df2a5f08499cd45cd520d27cc7f8fb"
   },
   "roles": {
     "deployer": "GBSJ6OLI3XRFWDWJJBW6C3H2EXKMFQQVFEKYNV6DHHGM5FHYJ3M7MM5Y",
@@ -18,12 +16,8 @@
     "arbitrator": "GAKY5EWWOETAUQQZJPSW3OD5R2N46BE7G24PAHSHLGYLZGTMOLWE7BXT"
   },
   "interactions": {
-    "init_escrow_tx": "74721826b6222e6e09ffc1cd8189afbbf6c49fd7f5d23a96c941d7c5553cba03",
-    "init_dispute_tx": "568ec59b9945d1589d614f948b9dc5dccae61584591b9c7f883022a507925f07",
-    "link_tx": "3163575b3f37f8d33aaf9c493d473b7e2d4722937568e4d0c4df24c80435b88a",
-    "fund_tx": "ab5ff9f31d371d840043eb85988efc9615c0c33c9f44beb04a39c5e6e6e16a89",
-    "activate_tx": "771ea2b6188f5ecd86952a0b7f73aa2963881c7bb15a03084a84c79669a9589c",
-    "dispute_tx": "f7ebc16f1751be9a926521370cec6b904120d61c432a92754f4e1543faf01680",
-    "resolve_tx": "bb8d01ca7f814db578adf182831d4b72d4ce006aa8c3330bad21b5e4b1f40469"
+    "init_escrow_tx": "null",
+    "init_dispute_tx": "null",
+    "link_tx": "null"
   }
 }

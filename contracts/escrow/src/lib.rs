@@ -496,4 +496,96 @@ mod test {
         assert_eq!(token_client.balance(&tenant), 700);
         assert_eq!(token_client.balance(&escrow_address), 0);
     }
+
+    #[test]
+    fn test_invalid_state_transitions() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+        let arbitrator = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        
+        let token_address = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
+        let escrow_address = env.register(EscrowContract, ());
+        let escrow_client = EscrowContractClient::new(&env, &escrow_address);
+
+        let amount = 1000_i128;
+        escrow_client.initialize(&landlord, &tenant, &arbitrator, &token_address, &amount);
+
+        // Cannot activate before funding
+        let result = escrow_client.try_activate();
+        assert_eq!(result.err(), Some(Ok(Error::InvalidState)));
+
+        // Fund
+        let token_admin_client = token::StellarAssetClient::new(&env, &token_address);
+        token_admin_client.mint(&tenant, &amount);
+        escrow_client.fund();
+
+        // Cannot fund again
+        let fund_result = escrow_client.try_fund();
+        assert_eq!(fund_result.err(), Some(Ok(Error::InvalidState)));
+    }
+
+    #[test]
+    fn test_unauthorized_role_actions() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+        let arbitrator = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        
+        let token_address = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
+        let escrow_address = env.register(EscrowContract, ());
+        let escrow_client = EscrowContractClient::new(&env, &escrow_address);
+
+        let amount = 1000_i128;
+        escrow_client.initialize(&landlord, &tenant, &arbitrator, &token_address, &amount);
+
+        // Fund and activate to get to Active state
+        let token_admin_client = token::StellarAssetClient::new(&env, &token_address);
+        token_admin_client.mint(&tenant, &amount);
+        escrow_client.fund();
+        escrow_client.activate();
+
+        // Attacker tries to request settlement
+        let res = escrow_client.try_request_settlement(&attacker, &500, &500);
+        assert_eq!(res.err(), Some(Ok(Error::NotAuthorized)));
+    }
+
+    #[test]
+    fn test_invalid_shares_total() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+        let arbitrator = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        
+        let token_address = env.register_stellar_asset_contract_v2(token_admin.clone()).address();
+        let escrow_address = env.register(EscrowContract, ());
+        let escrow_client = EscrowContractClient::new(&env, &escrow_address);
+
+        let amount = 1000_i128;
+        escrow_client.initialize(&landlord, &tenant, &arbitrator, &token_address, &amount);
+
+        // Fund and activate
+        let token_admin_client = token::StellarAssetClient::new(&env, &token_address);
+        token_admin_client.mint(&tenant, &amount);
+        escrow_client.fund();
+        escrow_client.activate();
+
+        // Request settlement with invalid shares (e.g. 500 + 600 = 1100 != 1000)
+        let res = escrow_client.try_request_settlement(&landlord, &500, &600);
+        assert_eq!(res.err(), Some(Ok(Error::ProposedSplitMismatch)));
+
+        // Request settlement with negative shares (e.g. -100 + 1100 = 1000)
+        let res_neg = escrow_client.try_request_settlement(&landlord, &-100, &1100);
+        assert_eq!(res_neg.err(), Some(Ok(Error::ProposedSplitMismatch)));
+    }
 }

@@ -123,6 +123,15 @@ impl DisputeContract {
         Ok(())
     }
 
+    /// Upgrade the contract WASM. Only callable by the arbitrator.
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
+        let arbitrator = Self::get_arbitrator(&env)?;
+        arbitrator.require_auth();
+
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        Ok(())
+    }
+
     // Helper views
     pub fn get_state(env: &Env) -> Result<DisputeState, Error> {
         env.storage().instance().get(&DataKey::State).ok_or(Error::NotInitialized)

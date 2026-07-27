@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #f9f9f9;
+    color: #1a1c1c;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+.premium-shadow {
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.premium-shadow-hover:hover {
+  box-shadow: 0px 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.soft-shadow {
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.hover-shadow:hover {
+  box-shadow: 0px 8px 30px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+@keyframes progress {
+  from { width: 0; }
+  to { width: var(--progress-width); }
+}
+
+.progress-animate {
+  animation: progress 1.5s ease-out forwards;
+}
