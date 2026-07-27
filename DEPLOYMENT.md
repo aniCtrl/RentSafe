@@ -72,8 +72,8 @@ The output metadata is stored permanently in `deployments/testnet.json`. Current
 
 | Contract | Address | Explorer |
 | :--- | :--- | :--- |
-| **RentSafe Escrow** | `CA3DCO4OZEWQR2GKIBU4W3OIC3U7MPZDI6TWL7MAZE2S2G6KA55UUT34` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CA3DCO4OZEWQR2GKIBU4W3OIC3U7MPZDI6TWL7MAZE2S2G6KA55UUT34) |
-| **RentSafe Dispute** | `CA5MT45EXTOJH3UPKMYWW2WHPWMXOZ6RALRM5JUQNMSWJZRNT2WF3YX3` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CA5MT45EXTOJH3UPKMYWW2WHPWMXOZ6RALRM5JUQNMSWJZRNT2WF3YX3) |
+| **RentSafe Escrow** | `CAUQOF5U6PUWNBZYWUAWBMYXQNPBXUQQWH3EHO6GQMUFKKNFQBWKXEUD` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CAUQOF5U6PUWNBZYWUAWBMYXQNPBXUQQWH3EHO6GQMUFKKNFQBWKXEUD) |
+| **RentSafe Dispute** | `CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W) |
 
 ---
 
@@ -114,7 +114,7 @@ To upgrade contract bytecode on-chain:
 
 Example:
 ```bash
-./scripts/upgrade.sh testnet CA3DCO4OZEWQR2GKIBU4W3OIC3U7MPZDI6TWL7MAZE2S2G6KA55UUT34 target/wasm32v1-none/release/rentsafe_escrow.wasm rentsafe-admin-live
+./scripts/upgrade.sh testnet CAUQOF5U6PUWNBZYWUAWBMYXQNPBXUQQWH3EHO6GQMUFKKNFQBWKXEUD target/wasm32v1-none/release/rentsafe_escrow.wasm rentsafe-admin-live
 ```
 
 ---
