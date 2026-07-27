@@ -1,133 +1,155 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { server } from '@/lib/stellar';
-import { useAppStore } from '@/store/useAppStore';
+import { useEffect, useState } from 'react';
 import { scValToNative } from '@stellar/stellar-sdk';
+import { DEFAULT_DISPUTE_ID, DEFAULT_ESCROW_ID, server } from '@/lib/stellar';
+import { formatStroopsToXlm, shortAddress } from '@/lib/rentsafe';
 
 export interface DecodedEvent {
   id: string;
   ledger: number;
-  type: string; // 'init' | 'funded' | 'active' | 'set_prop' | 'set_acc' | 'disputed' | 'resolved' | 'unknown'
+  type: string;
   message: string;
   timestamp: number;
 }
 
-export function useEventStream(contractId: string) {
+const asTuple = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+const asStroopsLike = (value: unknown): string | number | bigint =>
+  typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint' ? value : 0;
+
+export function useEventStream(agreementId?: number | string | null, disputeId?: number | string | null) {
   const [events, setEvents] = useState<DecodedEvent[]>([]);
   const [loading, setLoading] = useState(false);
-  const { network } = useAppStore();
+
+  const numericAgreementId = Number(agreementId);
+  const numericDisputeId = Number(disputeId);
+  const isValidAgreementId = !!agreementId && Number.isFinite(numericAgreementId) && numericAgreementId > 0;
+  const hasDisputeFilter = !!disputeId && Number.isFinite(numericDisputeId) && numericDisputeId > 0;
 
   useEffect(() => {
-    if (!contractId || contractId.length !== 56) return;
+    if (!isValidAgreementId) {
+      return;
+    }
 
-    let isSubscribed = true;
-    let intervalId: NodeJS.Timeout;
+    type ContractEventRecord = {
+      id: string;
+      ledger: number;
+      topic?: unknown[];
+      topics?: unknown[];
+      value: unknown;
+      contractId?: string;
+    };
 
-    const pollEvents = async () => {
-      try {
-        const latestLedger = await server.getLatestLedger();
-        // Look back ~1000 ledgers (roughly 1.5 hours of block history)
-        const startLedger = Math.max(1, latestLedger.sequence - 1000);
-
-        const response = await server.getEvents({
-          startLedger,
-          filters: [
-            {
-              type: 'contract',
-              contractIds: [contractId],
-            },
-          ],
-          limit: 30,
-        });
-
-        if (!isSubscribed) return;
-
-        const decoded = response.events.map((evt) => {
-          // Topics are ScVals representing symbol/strings.
-          // Topic[0] is namespace, Topic[1] is action name.
-          const topics = evt.topic.map((t) => {
-            try {
-              return scValToNative(t);
-            } catch {
-              return '';
-            }
-          });
-          
-          const action = topics[1] || '';
-          let type = 'unknown';
-          let message = 'Contract interaction detected';
-
-          try {
-            const rawVal = scValToNative(evt.value);
-            
-            // Map event actions
-            if (action === 'init') {
-              type = 'init';
-              message = `Agreement initialized with Landlord: ${rawVal[0]?.slice(0, 6)}..., Tenant: ${rawVal[1]?.slice(0, 6)}...`;
-            } else if (action === 'funded') {
-              type = 'funded';
-              const amtXlm = (Number(rawVal[1]) / 10000000).toFixed(0);
-              message = `Tenant ${rawVal[0]?.slice(0, 6)}... locked ${amtXlm} XLM deposit`;
-            } else if (action === 'active') {
-              type = 'active';
-              message = `Landlord ${rawVal[0]?.slice(0, 6)}... activated the lease`;
-            } else if (action === 'set_prop') {
-              type = 'set_prop';
-              const lShare = (Number(rawVal[1]) / 10000000).toFixed(0);
-              const tShare = (Number(rawVal[2]) / 10000000).toFixed(0);
-              message = `Mutual Split proposed: Landlord ${lShare} XLM, Tenant ${tShare} XLM`;
-            } else if (action === 'set_acc') {
-              type = 'set_acc';
-              const lShare = (Number(rawVal[0]) / 10000000).toFixed(0);
-              const tShare = (Number(rawVal[1]) / 10000000).toFixed(0);
-              message = `Mutual Split accepted: Landlord ${lShare} XLM, Tenant ${tShare} XLM distributed`;
-            } else if (action === 'disputed') {
-              type = 'disputed';
-              message = `Dispute filed by ${rawVal[0]?.slice(0, 6)}...; funds locked in escrow`;
-            } else if (action === 'resolved') {
-              type = 'resolved';
-              const lShare = (Number(rawVal[0]) / 10000000).toFixed(0);
-              const tShare = (Number(rawVal[1]) / 10000000).toFixed(0);
-              message = `Dispute resolved by Arbitrator: Landlord ${lShare} XLM, Tenant ${tShare} XLM distributed`;
-            }
-          } catch (valErr) {
-            console.error('Failed to decode event value:', valErr);
-          }
-
-          return {
-            id: evt.id,
-            ledger: evt.ledger,
-            type,
-            message,
-            timestamp: Date.now() - (latestLedger.sequence - evt.ledger) * 5000, // approximate block timestamp
-          };
-        });
-
-        // Filter duplicates and sort descending
-        setEvents((prev) => {
-          const all = [...decoded, ...prev];
-          const unique = all.filter((evt, idx, self) => self.findIndex((e) => e.id === evt.id) === idx);
-          return unique.sort((a, b) => b.ledger - a.ledger);
-        });
-      } catch (err) {
-        console.error('Error fetching event stream:', err);
-      } finally {
-        setLoading(false);
+    let cancelled = false;
+    const decodeMessage = (action: string, value: unknown) => {
+      const parts = asTuple(value);
+      switch (action) {
+        case 'agreement_created':
+          return `Agreement created for ${shortAddress(String(parts[0] ?? ''))} ↔ ${shortAddress(String(parts[1] ?? ''))}`;
+        case 'deposit_locked':
+          return `${shortAddress(String(parts[0] ?? ''))} locked ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM deposit`;
+        case 'agreement_active':
+          return `Agreement activated between ${shortAddress(String(parts[0] ?? ''))} and ${shortAddress(String(parts[1] ?? ''))}`;
+        case 'refund_requested':
+          return `Landlord requested full refund of ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM to tenant`;
+        case 'deduction_requested':
+          return `Deduction requested: ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM — ${String(parts[2] ?? '')}`;
+        case 'deduction_accepted':
+          return `Tenant accepted deduction of ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM`;
+        case 'deduction_rejected':
+          return `Tenant rejected deduction of ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM`;
+        case 'dispute_raised':
+          return `Dispute #${Number(parts[0] ?? 0)} raised by ${shortAddress(String(parts[1] ?? ''))}`;
+        case 'dispute_resolved':
+          return `Dispute resolved: ${formatStroopsToXlm(asStroopsLike(parts[0]))} XLM to landlord, ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM to tenant`;
+        case 'settled':
+          return `Agreement settled: ${formatStroopsToXlm(asStroopsLike(parts[0]))} XLM to landlord, ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM to tenant`;
+        case 'dispute_registered':
+          return `Dispute registered for agreement #${Number(parts[0] ?? 0)}`;
+        case 'evidence_submitted':
+          return `Additional evidence submitted by ${shortAddress(String(parts[0] ?? ''))}`;
+        default:
+          return 'Agreement activity detected on-chain';
       }
     };
 
-    setLoading(true);
-    pollEvents();
+    const pollEvents = async () => {
+      try {
+        setLoading(true);
+        const latestLedger = await server.getLatestLedger();
+        const startLedger = Math.max(1, latestLedger.sequence - 60000);
+        const response = await (server as unknown as {
+          getEvents: (args: {
+            startLedger: number;
+            filters: Array<{ type: string; contractIds: string[] }>;
+            limit: number;
+          }) => Promise<{ events?: ContractEventRecord[] }>;
+        }).getEvents({
+          startLedger,
+          filters: [{ type: 'contract', contractIds: hasDisputeFilter ? [DEFAULT_ESCROW_ID, DEFAULT_DISPUTE_ID] : [DEFAULT_ESCROW_ID] }],
+          limit: 200,
+        });
 
-    // Poll every 5 seconds
-    intervalId = setInterval(pollEvents, 5000);
+        if (cancelled) return;
+
+        const decoded = (response.events ?? [])
+          .map((event) => {
+            const topics = (event.topic || event.topics || []).map((topic) => {
+              try {
+                return scValToNative(topic as Parameters<typeof scValToNative>[0]);
+              } catch {
+                return null;
+              }
+            });
+
+            const action = String(topics[0] ?? '');
+            const eventId = Number(topics[1] ?? 0);
+            const isEscrowEvent = event.contractId === DEFAULT_ESCROW_ID;
+            const isDisputeEvent = event.contractId === DEFAULT_DISPUTE_ID;
+
+            if (isEscrowEvent && eventId !== numericAgreementId) {
+              return null;
+            }
+            if (isDisputeEvent && (!hasDisputeFilter || eventId !== numericDisputeId)) {
+              return null;
+            }
+
+            let value: unknown = null;
+            try {
+              value = scValToNative(event.value as Parameters<typeof scValToNative>[0]);
+            } catch {
+              value = null;
+            }
+
+            return {
+              id: event.id,
+              ledger: event.ledger,
+              type: action,
+              message: decodeMessage(action, value),
+              timestamp: Date.now() - Math.max(0, latestLedger.sequence - event.ledger) * 5000,
+            } satisfies DecodedEvent;
+          })
+          .filter((event: DecodedEvent | null): event is DecodedEvent => event !== null)
+          .sort((a: DecodedEvent, b: DecodedEvent) => b.ledger - a.ledger);
+
+        setEvents(decoded);
+      } catch (error) {
+        console.error('Error fetching agreement event stream:', error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void pollEvents();
+    const intervalId = setInterval(pollEvents, 5000);
 
     return () => {
-      isSubscribed = false;
+      cancelled = true;
       clearInterval(intervalId);
     };
-  }, [contractId, network]);
+  }, [agreementId, disputeId, hasDisputeFilter, isValidAgreementId, numericAgreementId, numericDisputeId]);
 
-  return { events, loading };
+  return { events: isValidAgreementId ? events : [], loading: isValidAgreementId ? loading : false };
 }
