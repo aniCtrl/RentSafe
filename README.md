@@ -407,7 +407,7 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 We appreciate your feedback and suggestions! Please use the following links to interact with our feedback portal:
 
 * 📝 Submit Feedback (Google Form): [Feedback Form ↗](https://forms.gle/9kgwCvEcJr4hvvYd7)
-* 📊 View Responses (Google Sheet): [Feedback Responses Sheet ↗](https://docs.google.com/spreadsheets/d/10yFdYF5G1gfuhXj6hv_vctEDTf28r-psNw4RGJ32YMw/edit?usp=sharing)
+* 📊 View Responses (Google Sheet): [Feedback Responses Sheet ↗](https://docs.google.com/spreadsheets/d/1PlGtF8OtwOwdY3nCmEYgWXrRbYSZYEyaFGaA2K1ocdE/edit?usp=sharing)
 
 ---
 
