@@ -1,0 +1,156 @@
+'use client';
+
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAppStore } from '@/store/useAppStore';
+import { useAgreementDetails, useAgreementDispute } from '@/hooks/useChainQueries';
+import { ContractService } from '@/services/contractService';
+import { readContractView, NATIVE_XLM_ID } from '@/lib/stellar';
+import { parseAgreementSlug, formatStroopsToXlm } from '@/lib/rentsafe';
+
+export function useInspectEscrow(agreementId?: string) {
+  const queryClient = useQueryClient();
+  const {
+    address,
+    setEscrowId,
+    setEscrowInfo,
+    setBalance,
+    addTransaction,
+    updateTransactionStatus,
+  } = useAppStore();
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [actionTx, setActionTx] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [deductionAmount, setDeductionAmount] = useState('0');
+  const [deductionReason, setDeductionReason] = useState('');
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeEvidenceRef, setDisputeEvidenceRef] = useState('');
+  const [additionalEvidenceRef, setAdditionalEvidenceRef] = useState('');
+
+  const numericAgreementId = useMemo(() => parseAgreementSlug(agreementId || ''), [agreementId]);
+  const isValidAgreementId = Number.isFinite(numericAgreementId) && numericAgreementId > 0;
+
+  const {
+    data: agreement,
+    isLoading: loadingAgreement,
+    error: agreementError,
+    refetch: refetchAgreement,
+  } = useAgreementDetails(isValidAgreementId ? numericAgreementId : null);
+
+  const {
+    data: dispute,
+    isLoading: loadingDispute,
+    refetch: refetchDispute,
+  } = useAgreementDispute(isValidAgreementId ? numericAgreementId : null);
+
+  useEffect(() => {
+    if (!agreement) return;
+    setEscrowInfo(agreement);
+    setEscrowId(String(agreement.agreementId));
+  }, [agreement, setEscrowId, setEscrowInfo]);
+
+  useEffect(() => {
+    if (agreement) {
+      setDeductionAmount(formatStroopsToXlm(agreement.deductionAmount));
+      setDeductionReason(agreement.deductionReason);
+    }
+  }, [agreement]);
+
+  const role = useMemo(() => {
+    if (!address || !agreement) return 'Guest';
+    if (address.toLowerCase() === agreement.landlord.toLowerCase()) return 'Landlord';
+    if (address.toLowerCase() === agreement.tenant.toLowerCase()) return 'Tenant';
+    return 'Viewer';
+  }, [address, agreement]);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([
+      refetchAgreement(),
+      refetchDispute(),
+      queryClient.invalidateQueries({ queryKey: ['userAgreements'] }),
+      queryClient.invalidateQueries({ queryKey: ['dashboardMetrics'] }),
+      queryClient.invalidateQueries({ queryKey: ['platformStats'] }),
+      queryClient.invalidateQueries({ queryKey: ['allDisputes'] }),
+    ]);
+
+    if (address) {
+      try {
+        const balanceValue = await readContractView(NATIVE_XLM_ID, 'balance', [address]);
+        setBalance((Number(balanceValue) / 10_000_000).toFixed(2));
+      } catch (balanceError) {
+        console.error('Failed to fetch user balance:', balanceError);
+      }
+    }
+  }, [address, refetchAgreement, refetchDispute, queryClient, setBalance]);
+
+  const runTrackedAction = useCallback(async (
+    actionName: string,
+    txType: string,
+    action: () => Promise<string>,
+  ) => {
+    if (!address) {
+      setModalOpen(true);
+      return;
+    }
+
+    const txId = `${txType}-${numericAgreementId}-${Date.now()}`;
+
+    try {
+      setActionLoading(actionName);
+      setActionError(null);
+      setActionTx(null);
+      addTransaction({
+        id: txId,
+        hash: '',
+        type: txType,
+        status: 'processing',
+        description: `${actionName} for agreement #${numericAgreementId}`,
+        agreementId: String(numericAgreementId),
+      });
+
+      const txHash = await action();
+      setActionTx(txHash);
+      updateTransactionStatus(txId, 'confirmed', txHash);
+      await refreshAll();
+    } catch (error) {
+      console.error(error);
+      updateTransactionStatus(txId, 'failed');
+      setActionError(error instanceof Error ? error.message : `${actionName} failed`);
+    } finally {
+      setActionLoading(null);
+    }
+  }, [address, numericAgreementId, addTransaction, updateTransactionStatus, refreshAll]);
+
+  return {
+    address,
+    role,
+    agreement,
+    dispute,
+    loadingAgreement,
+    agreementError,
+    loadingDispute,
+    modalOpen,
+    setModalOpen,
+    actionTx,
+    setActionTx,
+    actionError,
+    setActionError,
+    actionLoading,
+    deductionAmount,
+    setDeductionAmount,
+    deductionReason,
+    setDeductionReason,
+    disputeReason,
+    setDisputeReason,
+    disputeEvidenceRef,
+    setDisputeEvidenceRef,
+    additionalEvidenceRef,
+    setAdditionalEvidenceRef,
+    numericAgreementId,
+    isValidAgreementId,
+    refreshAll,
+    runTrackedAction,
+  };
+}

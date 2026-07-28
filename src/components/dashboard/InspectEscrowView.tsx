@@ -1,145 +1,56 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import dynamic from 'next/dynamic';
-import { useQueryClient } from '@tanstack/react-query';
 import ActivityFeed from '@/components/ActivityFeed';
 import TransactionCenter from '@/components/TransactionCenter';
 import { ContractService } from '@/services/contractService';
-import { readContractView, NATIVE_XLM_ID } from '@/lib/stellar';
-import { useAppStore } from '@/store/useAppStore';
-import { useAgreementDetails, useAgreementDispute } from '@/hooks/useChainQueries';
+import { useInspectEscrow } from '@/hooks/useInspectEscrow';
 import {
   AGREEMENT_STATUS_LABELS,
   formatStroopsToXlm,
   formatTimestamp,
   formatAgreementId,
-  parseAgreementSlug,
   shortAddress,
 } from '@/lib/rentsafe';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 const RentPaymentPanel = dynamic(() => import('@/components/dashboard/RentPaymentPanel'), { ssr: false });
 
-
 type InspectEscrowViewProps = {
   agreementId?: string;
 };
 
 export default function InspectEscrowView({ agreementId }: InspectEscrowViewProps) {
-  const queryClient = useQueryClient();
   const {
     address,
-    setEscrowId,
-    setEscrowInfo,
-    setBalance,
-    addTransaction,
-    updateTransactionStatus,
-  } = useAppStore();
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [actionTx, setActionTx] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [deductionAmount, setDeductionAmount] = useState('0');
-  const [deductionReason, setDeductionReason] = useState('');
-  const [disputeReason, setDisputeReason] = useState('');
-  const [disputeEvidenceRef, setDisputeEvidenceRef] = useState('');
-  const [additionalEvidenceRef, setAdditionalEvidenceRef] = useState('');
-
-  const numericAgreementId = useMemo(() => parseAgreementSlug(agreementId || ''), [agreementId]);
-  const isValidAgreementId = Number.isFinite(numericAgreementId) && numericAgreementId > 0;
-
-  const {
-    data: agreement,
-    isLoading: loadingAgreement,
-    error: agreementError,
-    refetch: refetchAgreement,
-  } = useAgreementDetails(isValidAgreementId ? numericAgreementId : null);
-
-  const {
-    data: dispute,
-    isLoading: loadingDispute,
-    refetch: refetchDispute,
-  } = useAgreementDispute(isValidAgreementId ? numericAgreementId : null);
-
-  useEffect(() => {
-    if (!agreement) return;
-    setEscrowInfo(agreement);
-    setEscrowId(String(agreement.agreementId));
-  }, [agreement, setEscrowId, setEscrowInfo]);
-
-  useEffect(() => {
-    if (agreement) {
-      setDeductionAmount(formatStroopsToXlm(agreement.deductionAmount));
-      setDeductionReason(agreement.deductionReason);
-    }
-  }, [agreement]);
-
-  const role = useMemo(() => {
-    if (!address || !agreement) return 'Guest';
-    if (address.toLowerCase() === agreement.landlord.toLowerCase()) return 'Landlord';
-    if (address.toLowerCase() === agreement.tenant.toLowerCase()) return 'Tenant';
-    return 'Viewer';
-  }, [address, agreement]);
-
-  const refreshAll = async () => {
-    await Promise.all([
-      refetchAgreement(),
-      refetchDispute(),
-      queryClient.invalidateQueries({ queryKey: ['userAgreements'] }),
-      queryClient.invalidateQueries({ queryKey: ['dashboardMetrics'] }),
-      queryClient.invalidateQueries({ queryKey: ['platformStats'] }),
-      queryClient.invalidateQueries({ queryKey: ['allDisputes'] }),
-    ]);
-
-    if (address) {
-      try {
-        const balanceValue = await readContractView(NATIVE_XLM_ID, 'balance', [address]);
-        setBalance((Number(balanceValue) / 10000000).toFixed(2));
-      } catch (balanceError) {
-        console.error('Failed to fetch user balance:', balanceError);
-      }
-    }
-  };
-
-  const runTrackedAction = async (
-    actionName: string,
-    txType: string,
-    action: () => Promise<string>,
-  ) => {
-    if (!address) {
-      setModalOpen(true);
-      return;
-    }
-
-    const txId = `${txType}-${numericAgreementId}-${Date.now()}`;
-
-    try {
-      setActionLoading(actionName);
-      setActionError(null);
-      setActionTx(null);
-      addTransaction({
-        id: txId,
-        hash: '',
-        type: txType,
-        status: 'processing',
-        description: `${actionName} for agreement #${numericAgreementId}`,
-        agreementId: String(numericAgreementId),
-      });
-
-      const txHash = await action();
-      setActionTx(txHash);
-      updateTransactionStatus(txId, 'confirmed', txHash);
-      await refreshAll();
-    } catch (error) {
-      console.error(error);
-      updateTransactionStatus(txId, 'failed');
-      setActionError(error instanceof Error ? error.message : `${actionName} failed`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
+    role,
+    agreement,
+    dispute,
+    loadingAgreement,
+    agreementError,
+    loadingDispute,
+    modalOpen,
+    setModalOpen,
+    actionTx,
+    setActionTx,
+    actionError,
+    setActionError,
+    actionLoading,
+    deductionAmount,
+    setDeductionAmount,
+    deductionReason,
+    setDeductionReason,
+    disputeReason,
+    setDisputeReason,
+    disputeEvidenceRef,
+    setDisputeEvidenceRef,
+    additionalEvidenceRef,
+    setAdditionalEvidenceRef,
+    numericAgreementId,
+    refreshAll,
+    runTrackedAction,
+  } = useInspectEscrow(agreementId);
 
   if (!agreementId) {
     return (
@@ -196,7 +107,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
           </div>
         ) : (
           <div className="space-y-6">
-          <div className="bg-[#ffffff] rounded-[24px] p-6 shadow-sm border border-[#e2e2e2] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="bg-[#ffffff] rounded-[24px] p-6 shadow-sm border border-[#e2e2e2] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <h3 className="text-lg font-bold text-[#000000]">
                   {formatAgreementId(agreement.agreementId, agreement.createdAt)}
@@ -312,7 +223,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                             ContractService.requestDeduction(
                               agreement.agreementId,
                               {
-                                amount: BigInt(Math.round(parseFloat(deductionAmount || '0') * 10000000)),
+                                amount: BigInt(Math.round(parseFloat(deductionAmount || '0') * 10_000_000)),
                                 reason: deductionReason,
                               },
                               address,

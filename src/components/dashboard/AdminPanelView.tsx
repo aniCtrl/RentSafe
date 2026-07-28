@@ -1,117 +1,28 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAllDisputes, useAgreementDetails } from '@/hooks/useChainQueries';
-import { ContractService } from '@/services/contractService';
-import { DEFAULT_PLATFORM_ADMIN_ID, NATIVE_XLM_ID, readContractView } from '@/lib/stellar';
-import { useAppStore } from '@/store/useAppStore';
+import React from 'react';
+import { useAdminPanel } from '@/hooks/useAdminPanel';
 import { formatStroopsToXlm, formatTimestamp, shortAddress } from '@/lib/rentsafe';
 
 export default function AdminPanelView() {
-  const queryClient = useQueryClient();
-  const { address, setBalance, addTransaction, updateTransactionStatus } = useAppStore();
-  const [selectedDisputeId, setSelectedDisputeId] = useState<number | null>(null);
-  const [landlordAmount, setLandlordAmount] = useState('0');
-  const [tenantAmount, setTenantAmount] = useState('0');
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionTx, setActionTx] = useState<string | null>(null);
-
-  const isAdmin = !!address && address.toLowerCase() === DEFAULT_PLATFORM_ADMIN_ID.toLowerCase();
-  const { data: disputes = [], isLoading, error, refetch } = useAllDisputes(isAdmin);
-
-  const openDisputes = useMemo(
-    () => disputes.filter((dispute) => dispute.statusLabel === 'Open' || dispute.statusLabel === 'EvidenceSubmitted'),
-    [disputes],
-  );
-  const resolvedDisputes = useMemo(() => disputes.filter((dispute) => dispute.statusLabel === 'Resolved'), [disputes]);
-  const selectedDispute = useMemo(
-    () => disputes.find((dispute) => dispute.disputeId === selectedDisputeId) ?? openDisputes[0] ?? resolvedDisputes[0] ?? null,
-    [disputes, openDisputes, resolvedDisputes, selectedDisputeId],
-  );
-
-  const { data: selectedAgreement } = useAgreementDetails(selectedDispute?.agreementId ?? null);
-
-  useEffect(() => {
-    if (!selectedDisputeId && (openDisputes[0] || resolvedDisputes[0])) {
-      setSelectedDisputeId((openDisputes[0] || resolvedDisputes[0])?.disputeId ?? null);
-    }
-  }, [openDisputes, resolvedDisputes, selectedDisputeId]);
-
-  useEffect(() => {
-    if (selectedAgreement) {
-      const deposit = Number(selectedAgreement.depositAmount) / 10000000;
-      setTenantAmount(deposit.toFixed(2));
-      setLandlordAmount('0');
-    }
-  }, [selectedAgreement?.agreementId]);
-
-  const refreshAll = async () => {
-    await Promise.all([
-      refetch(),
-      queryClient.invalidateQueries({ queryKey: ['agreementDetails'] }),
-      queryClient.invalidateQueries({ queryKey: ['agreementDispute'] }),
-      queryClient.invalidateQueries({ queryKey: ['userAgreements'] }),
-      queryClient.invalidateQueries({ queryKey: ['dashboardMetrics'] }),
-      queryClient.invalidateQueries({ queryKey: ['platformStats'] }),
-      queryClient.invalidateQueries({ queryKey: ['allDisputes'] }),
-    ]);
-
-    if (address) {
-      try {
-        const balanceValue = await readContractView(NATIVE_XLM_ID, 'balance', [address]);
-        setBalance((Number(balanceValue) / 10000000).toFixed(2));
-      } catch (balanceError) {
-        console.error('Failed to refresh admin wallet balance:', balanceError);
-      }
-    }
-  };
-
-  const handleResolve = async () => {
-    if (!selectedDispute || !selectedAgreement || !address) return;
-
-    const landlordRaw = BigInt(Math.round(parseFloat(landlordAmount || '0') * 10000000));
-    const tenantRaw = BigInt(Math.round(parseFloat(tenantAmount || '0') * 10000000));
-    const total = landlordRaw + tenantRaw;
-
-    if (total !== selectedAgreement.depositAmount) {
-      setActionError(`Resolution split must total exactly ${formatStroopsToXlm(selectedAgreement.depositAmount)} XLM.`);
-      return;
-    }
-
-    const txId = `admin-resolve-${selectedDispute.disputeId}-${Date.now()}`;
-
-    try {
-      setActionLoading(true);
-      setActionError(null);
-      setActionTx(null);
-      addTransaction({
-        id: txId,
-        hash: '',
-        type: 'resolve_dispute',
-        status: 'processing',
-        description: `Resolving dispute #${selectedDispute.disputeId}`,
-        agreementId: String(selectedDispute.agreementId),
-      });
-
-      const txHash = await ContractService.resolveDispute(
-        selectedDispute.disputeId,
-        { landlordAmount: landlordRaw, tenantAmount: tenantRaw },
-        address,
-      );
-
-      setActionTx(txHash);
-      updateTransactionStatus(txId, 'confirmed', txHash);
-      await refreshAll();
-    } catch (resolveError) {
-      console.error(resolveError);
-      updateTransactionStatus(txId, 'failed');
-      setActionError(resolveError instanceof Error ? resolveError.message : 'Dispute resolution failed');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const {
+    isAdmin,
+    isLoading,
+    error,
+    openDisputes,
+    resolvedDisputes,
+    selectedDispute,
+    selectedAgreement,
+    setSelectedDisputeId,
+    landlordAmount,
+    setLandlordAmount,
+    tenantAmount,
+    setTenantAmount,
+    actionLoading,
+    actionError,
+    actionTx,
+    handleResolve,
+  } = useAdminPanel();
 
   if (!isAdmin) {
     return (
@@ -288,7 +199,7 @@ export default function AdminPanelView() {
                         value={landlordAmount}
                         onChange={(event) => {
                           const nextLandlord = parseFloat(event.target.value) || 0;
-                          const total = Number(selectedAgreement.depositAmount) / 10000000;
+                          const total = Number(selectedAgreement.depositAmount) / 10_000_000;
                           setLandlordAmount(event.target.value);
                           setTenantAmount(Math.max(0, total - nextLandlord).toFixed(2));
                         }}
@@ -304,7 +215,7 @@ export default function AdminPanelView() {
                         value={tenantAmount}
                         onChange={(event) => {
                           const nextTenant = parseFloat(event.target.value) || 0;
-                          const total = Number(selectedAgreement.depositAmount) / 10000000;
+                          const total = Number(selectedAgreement.depositAmount) / 10_000_000;
                           setTenantAmount(event.target.value);
                           setLandlordAmount(Math.max(0, total - nextTenant).toFixed(2));
                         }}
