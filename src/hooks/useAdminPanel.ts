@@ -108,7 +108,8 @@ export function useAdminPanel() {
     } catch (resolveError) {
       console.error(resolveError);
       updateTransactionStatus(txId, 'failed');
-      setActionError(resolveError instanceof Error ? resolveError.message : 'Dispute resolution failed');
+      const { translateStellarError } = await import('@/lib/errors');
+      setActionError(translateStellarError(resolveError));
     } finally {
       setActionLoading(false);
     }

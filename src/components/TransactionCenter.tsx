@@ -1,16 +1,39 @@
 'use client';
 
 import React from 'react';
-import { useAppStore } from '@/store/useAppStore';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAppStore, TransactionRecord } from '@/store/useAppStore';
 import { parseAgreementSlug } from '@/lib/rentsafe';
 
 export default function TransactionCenter({ agreementId }: { agreementId?: string | number | null }) {
-  const { transactions, clearTransactions } = useAppStore();
+  const queryClient = useQueryClient();
+  const { transactions, address, updateTransactionStatus, clearTransactions } = useAppStore();
   const parsedId = agreementId != null ? parseAgreementSlug(String(agreementId)) : NaN;
   const scopeKey = !isNaN(parsedId) ? String(parsedId) : (agreementId != null ? String(agreementId) : null);
   const scopedTransactions = scopeKey
     ? transactions.filter((transaction) => transaction.agreementId === scopeKey)
     : transactions;
+
+  const handleRetry = async (tx: TransactionRecord) => {
+    if (!tx.retryPayload || !address) return;
+    const { contractId, method, args } = tx.retryPayload;
+
+    updateTransactionStatus(tx.id, 'processing');
+
+    try {
+      const { writeContractMethod } = await import('@/lib/stellar');
+      const txHash = await writeContractMethod(contractId, method, args, address);
+      updateTransactionStatus(tx.id, 'confirmed', txHash);
+      
+      // Invalidate query state to refresh UI views
+      await queryClient.invalidateQueries();
+    } catch (err) {
+      console.error('Retry failed:', err);
+      updateTransactionStatus(tx.id, 'failed');
+      const { translateStellarError } = await import('@/lib/errors');
+      alert(`Retry transaction failed: ${translateStellarError(err)}`);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -91,6 +114,16 @@ export default function TransactionCenter({ agreementId }: { agreementId?: strin
                     Explorer <span className="material-symbols-outlined text-[10px]">open_in_new</span>
                   </a>
                 </div>
+              )}
+
+              {tx.status === 'failed' && tx.retryPayload && (
+                <button
+                  onClick={() => handleRetry(tx)}
+                  className="mt-2 bg-black text-white hover:opacity-85 font-bold px-3 py-1.5 rounded-lg self-start text-[10px] uppercase tracking-wider flex items-center gap-1 transition-all"
+                >
+                  <span className="material-symbols-outlined text-xs">replay</span>
+                  <span>Retry Transaction</span>
+                </button>
               )}
             </div>
           ))}

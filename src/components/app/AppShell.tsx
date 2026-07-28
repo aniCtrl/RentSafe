@@ -61,6 +61,18 @@ const NAV_ITEMS: NavItem[] = [
     icon: 'settings',
     match: (pathname) => pathname === '/settings',
   },
+  {
+    href: '/activity-feed',
+    label: 'Activity Feed',
+    icon: 'notifications',
+    match: (pathname) => pathname === '/activity-feed',
+  },
+  {
+    href: '/transaction-center',
+    label: 'Transaction Center',
+    icon: 'receipt_long',
+    match: (pathname) => pathname === '/transaction-center',
+  },
 ];
 
 export default function AppShell({ title, children }: AppShellProps) {
@@ -68,6 +80,7 @@ export default function AppShell({ title, children }: AppShellProps) {
   const router = useRouter();
   const { address, balance, escrowId, resetSession } = useAppStore();
   const [modalOpen, setModalOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isAdmin = !!address && address.toLowerCase() === DEFAULT_PLATFORM_ADMIN_ID.toLowerCase();
 
   const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin), [isAdmin]);
@@ -116,6 +129,7 @@ export default function AppShell({ title, children }: AppShellProps) {
 
   return (
     <div className="bg-[#f9f9f9] text-[#1a1c1c] font-sans min-h-screen overflow-x-hidden antialiased flex flex-col md:flex-row pb-16 md:pb-0">
+      {/* Desktop Sidebar Navigation */}
       <aside className="hidden md:flex bg-[#ffffff] border-r border-[#e2e2e2] h-screen w-64 flex-col z-30 p-6 shrink-0 sticky top-0">
         <Link href="/dashboard" className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-xl bg-[#000000] flex items-center justify-center text-white">
@@ -130,7 +144,9 @@ export default function AppShell({ title, children }: AppShellProps) {
         <div className="bg-[#f3f3f3] rounded-2xl px-4 py-3 flex items-center justify-between border border-[#e2e2e2] mb-6">
           <div className="flex items-center gap-2 overflow-hidden">
             <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${address ? 'bg-emerald-500' : 'bg-[#747878]'}`} />
-            <span className="text-xs font-semibold font-mono truncate text-[#000000]">{address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Not Connected'}</span>
+            <span className="text-xs font-semibold font-mono truncate text-[#000000]">
+              {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Not Connected'}
+            </span>
           </div>
           {address ? (
             <button
@@ -175,9 +191,18 @@ export default function AppShell({ title, children }: AppShellProps) {
         </div>
       </aside>
 
+      {/* Main Body container */}
       <div className="flex-grow flex flex-col min-h-screen">
         <header className="bg-[#ffffff] border-b border-[#e2e2e2] h-16 min-h-[64px] shrink-0 flex justify-between items-center px-6 sticky top-0 z-20">
-          <h2 className="text-base font-bold text-[#000000] tracking-tight">{title}</h2>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-1 md:hidden text-[#747878] hover:text-black transition-colors"
+            >
+              <span className="material-symbols-outlined text-2xl">menu</span>
+            </button>
+            <h2 className="text-base font-bold text-[#000000] tracking-tight">{title}</h2>
+          </div>
 
           <div className="flex items-center gap-4">
             <form onSubmit={handleInspectSubmit} className="relative hidden md:flex items-center">
@@ -193,11 +218,14 @@ export default function AppShell({ title, children }: AppShellProps) {
             </form>
 
             {address ? (
-              <span className="text-xs text-[#585f6c] font-mono bg-[#eeeeee] px-2.5 py-1.5 rounded-lg border border-[#c4c7c7]/30 md:hidden">
+              <span className="text-xs font-semibold font-mono bg-[#eeeeee] px-2.5 py-1.5 rounded-lg border border-[#c4c7c7]/30 md:hidden text-black">
                 {address.slice(0, 4)}...{address.slice(-4)}
               </span>
             ) : (
-              <button onClick={() => setModalOpen(true)} className="bg-[#000000] text-white px-4 py-2 rounded-full text-xs font-bold hover:opacity-90 transition-opacity">
+              <button
+                onClick={() => setModalOpen(true)}
+                className="bg-[#000000] text-white px-4 py-2 rounded-full text-xs font-bold hover:opacity-90 transition-opacity"
+              >
                 Connect Wallet
               </button>
             )}
@@ -207,16 +235,104 @@ export default function AppShell({ title, children }: AppShellProps) {
         <main className="flex-grow p-6 md:p-8 max-w-6xl mx-auto w-full">{children}</main>
       </div>
 
+      {/* Mobile Drawer Overlay Navigation */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="relative w-64 bg-[#ffffff] h-full flex flex-col justify-between p-6 shadow-xl z-55 animate-slide-in">
+            <div className="flex flex-col gap-6">
+              <div className="flex justify-between items-center pb-4 border-b border-[#e2e2e2]">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-black text-2xl font-bold">real_estate_agent</span>
+                  <span className="text-xl font-bold tracking-tight text-black">RentSafe</span>
+                </div>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-black hover:opacity-85 transition-opacity"
+                >
+                  <span className="material-symbols-outlined text-xl">close</span>
+                </button>
+              </div>
+
+              <nav className="flex flex-col gap-1">
+                {visibleNavItems.map((item) => {
+                  const isActive = activeHref === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
+                        isActive
+                          ? 'bg-black text-white'
+                          : 'text-[#585f6c] hover:bg-[#e2e2e2]/55 hover:text-black'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-lg">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="bg-[#f9f9f9] border border-[#e2e2e2] p-4 rounded-[20px] shadow-sm flex flex-col gap-3">
+              <div>
+                <p className="text-[10px] text-[#585f6c] font-bold uppercase tracking-wider">BALANCE</p>
+                <p className="text-base font-black text-black font-mono">{balance} XLM</p>
+              </div>
+              {address ? (
+                <button
+                  onClick={async () => {
+                    const { StellarWalletsKit } = await import('@creit.tech/stellar-wallets-kit/sdk');
+                    await StellarWalletsKit.disconnect();
+                    resetSession();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full bg-[#ffdad6] text-[#ba1a1a] text-[10px] font-bold py-2.5 rounded-xl uppercase tracking-wider"
+                >
+                  Disconnect
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setModalOpen(true);
+                  }}
+                  className="w-full bg-black text-white text-[10px] font-bold py-2.5 rounded-xl uppercase tracking-wider"
+                >
+                  Connect Wallet
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Bottom Quick-Nav Bar */}
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-[#ffffff] border-t border-[#e2e2e2] h-16 flex justify-around items-center z-40 px-2">
-        {visibleNavItems.map((item) => {
-          const isActive = activeHref === item.href;
-          return (
-            <Link key={item.href} href={item.href} className={`flex flex-col items-center justify-center text-[10px] font-bold ${isActive ? 'text-black' : 'text-[#747878]'}`}>
-              <span className="material-symbols-outlined text-lg">{item.icon}</span>
-              <span>{item.label === 'Dashboard' ? 'Home' : item.label.replace(' Escrow', '')}</span>
-            </Link>
-          );
-        })}
+        <Link href="/dashboard" className={`flex flex-col items-center justify-center text-[10px] font-bold ${activeHref === '/dashboard' ? 'text-black' : 'text-[#747878]'}`}>
+          <span className="material-symbols-outlined text-lg">dashboard</span>
+          <span>Home</span>
+        </Link>
+        <Link href="/inspect-escrow" className={`flex flex-col items-center justify-center text-[10px] font-bold ${activeHref.startsWith('/inspect-escrow') ? 'text-black' : 'text-[#747878]'}`}>
+          <span className="material-symbols-outlined text-lg">search</span>
+          <span>Inspect</span>
+        </Link>
+        <Link href="/create" className={`flex flex-col items-center justify-center text-[10px] font-bold ${activeHref === '/create' ? 'text-black' : 'text-[#747878]'}`}>
+          <span className="material-symbols-outlined text-lg">add_circle</span>
+          <span>Create</span>
+        </Link>
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center text-[10px] font-bold text-[#747878]"
+        >
+          <span className="material-symbols-outlined text-lg">menu</span>
+          <span>Menu</span>
+        </button>
       </nav>
 
       <WalletConnectModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />

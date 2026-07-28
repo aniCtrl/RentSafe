@@ -107,8 +107,8 @@ export function useCreateAgreement() {
     } catch (submitError) {
       console.error(submitError);
       updateTransactionStatus(txId, 'failed');
-      const message = submitError instanceof Error ? submitError.message : 'Agreement creation transaction failed.';
-      setError(message);
+      const { translateStellarError } = await import('@/lib/errors');
+      setError(translateStellarError(submitError));
     } finally {
       setLoading(false);
     }

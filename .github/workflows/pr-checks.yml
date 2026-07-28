@@ -70,6 +70,9 @@ jobs:
       - name: Run Cargo Contract Tests
         run: cargo test
 
+      - name: Build WASM Smart Contracts
+        run: cargo build --target wasm32-unknown-unknown --release
+
   frontend-tests:
     name: Run Vitest Unit Tests
     runs-on: ubuntu-latest

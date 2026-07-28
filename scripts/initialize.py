@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -17,6 +18,13 @@ def main():
     network = "testnet"
     if len(sys.argv) > 1:
         network = sys.argv[1]
+
+    # Source identity default to "rentsafe-deployer", fallback to RENTSAFE_TESTNET or command line arg
+    source_identity = "rentsafe-deployer"
+    if len(sys.argv) > 2:
+        source_identity = sys.argv[2]
+    elif os.getenv("RENTSAFE_DEPLOYER_IDENTITY"):
+        source_identity = os.getenv("RENTSAFE_DEPLOYER_IDENTITY")
 
     metadata_path = f"deployments/{network}.json"
     if not os.path.exists(metadata_path):
@@ -35,10 +43,11 @@ def main():
 
     print("--------------------------------------------------")
     print(f"Initializing RentSafe Contracts on {network}")
-    print(f"Escrow:     {escrow_id}")
-    print(f"Dispute:    {dispute_id}")
-    print(f"Platform:   {admin}")
-    print(f"Token:      {token}")
+    print(f"Source Identity: {source_identity}")
+    print(f"Escrow:          {escrow_id}")
+    print(f"Dispute:         {dispute_id}")
+    print(f"Platform Admin:  {admin}")
+    print(f"Token Asset:     {token}")
     print("--------------------------------------------------")
 
     # 1. Initialize Dispute
@@ -46,7 +55,7 @@ def main():
     init_dispute_tx = run_cmd([
         "stellar", "contract", "invoke",
         "--id", dispute_id,
-        "--source-account", "rentsafe-deployer",
+        "--source-account", source_identity,
         "--network", network,
         "--", "initialize",
         "--admin", admin,
@@ -58,7 +67,7 @@ def main():
     init_escrow_tx = run_cmd([
         "stellar", "contract", "invoke",
         "--id", escrow_id,
-        "--source-account", "rentsafe-deployer",
+        "--source-account", source_identity,
         "--network", network,
         "--", "initialize",
         "--admin", admin,
@@ -100,11 +109,11 @@ def update_file_placeholders(filepath, escrow_id, dispute_id, network):
     with open(filepath, "r") as f:
         content = f.read()
 
+    # Replaces placeholders
     content = content.replace("{{ESCROW_CONTRACT_ID}}", escrow_id)
     content = content.replace("{{DISPUTE_CONTRACT_ID}}", dispute_id)
     
     # Also support replacing existing values if run repeatedly
-    import re
     content = re.sub(r"NEXT_PUBLIC_ESCROW_CONTRACT_ID=.*", f"NEXT_PUBLIC_ESCROW_CONTRACT_ID={escrow_id}", content)
     content = re.sub(r"NEXT_PUBLIC_DISPUTE_CONTRACT_ID=.*", f"NEXT_PUBLIC_DISPUTE_CONTRACT_ID={dispute_id}", content)
 

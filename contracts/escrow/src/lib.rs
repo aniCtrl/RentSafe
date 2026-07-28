@@ -87,6 +87,7 @@ pub enum EscrowDataKey {
     NextAgreementId,
     Agreement(u64),
     AgreementIds,
+    Role(Address, Symbol),
 }
 
 #[contractclient(name = "DisputeRegistryClient")]
@@ -135,11 +136,55 @@ impl EscrowContract {
             .persistent()
             .set(&EscrowDataKey::AgreementIds, &Vec::<u64>::new(&env));
 
+        // Grant role to admin
+        let admin_role = Symbol::new(&env, "admin");
+        Self::grant_role(&env, &admin, &admin_role);
+
         env.events().publish(
             (Symbol::new(&env, "escrow_initialized"),),
             (admin, dispute_contract),
         );
 
+        Ok(())
+    }
+
+    // Role helper functions (public check)
+    pub fn has_role(env: Env, address: Address, role: Symbol) -> bool {
+        env.storage()
+            .persistent()
+            .has(&EscrowDataKey::Role(address, role))
+    }
+
+    fn grant_role(env: &Env, address: &Address, role: &Symbol) {
+        env.storage()
+            .persistent()
+            .set(&EscrowDataKey::Role(address.clone(), role.clone()), &true);
+    }
+
+    fn revoke_role(env: &Env, address: &Address, role: &Symbol) {
+        env.storage()
+            .persistent()
+            .remove(&EscrowDataKey::Role(address.clone(), role.clone()));
+    }
+
+    // Admin role configuration endpoints
+    pub fn add_admin(env: Env, admin_caller: Address, new_admin: Address) -> Result<(), Error> {
+        admin_caller.require_auth();
+        if !Self::has_role(env.clone(), admin_caller, Symbol::new(&env, "admin")) {
+            return Err(Error::NotAuthorized);
+        }
+        let admin_role = Symbol::new(&env, "admin");
+        Self::grant_role(&env, &new_admin, &admin_role);
+        Ok(())
+    }
+
+    pub fn remove_admin(env: Env, admin_caller: Address, old_admin: Address) -> Result<(), Error> {
+        admin_caller.require_auth();
+        if !Self::has_role(env.clone(), admin_caller, Symbol::new(&env, "admin")) {
+            return Err(Error::NotAuthorized);
+        }
+        let admin_role = Symbol::new(&env, "admin");
+        Self::revoke_role(&env, &old_admin, &admin_role);
         Ok(())
     }
 
@@ -475,9 +520,11 @@ impl EscrowContract {
         Ok(())
     }
 
-    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
-        let config = Self::get_config(env.clone())?;
-        config.admin.require_auth();
+    pub fn upgrade(env: Env, caller: Address, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
+        caller.require_auth();
+        if !Self::has_role(env.clone(), caller, Symbol::new(&env, "admin")) {
+            return Err(Error::NotAuthorized);
+        }
         env.deployer().update_current_contract_wasm(new_wasm_hash);
         Ok(())
     }
@@ -787,7 +834,7 @@ mod test {
         assert_eq!(dispute.evidence.len(), 1);
 
         env.mock_all_auths_allowing_non_root_auth();
-        dispute_client.resolve_dispute(&dispute_id, &250, &750);
+        dispute_client.resolve_dispute(&admin, &dispute_id, &250, &750);
 
         let settled = escrow_client.get_agreement(&agreement_id);
         let resolved_dispute = dispute_client.get_dispute(&dispute_id);
@@ -844,5 +891,26 @@ mod test {
             &10,
             &20,
         );
+    }
+
+    #[test]
+    fn test_rbac_unauthorized_upgrade_fails() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let dispute_address = Address::generate(&env);
+        let token_address = Address::generate(&env);
+
+        let escrow_address = env.register(EscrowContract, ());
+        let escrow_client = EscrowContractClient::new(&env, &escrow_address);
+
+        env.mock_all_auths_allowing_non_root_auth();
+        escrow_client.initialize(&admin, &dispute_address, &token_address);
+
+        let intruder = Address::generate(&env);
+        let dummy_hash = BytesN::from_array(&env, &[0; 32]);
+        
+        // Intruder attempts to upgrade contract - should fail
+        let result = escrow_client.try_upgrade(&intruder, &dummy_hash);
+        assert!(result.is_err());
     }
 }

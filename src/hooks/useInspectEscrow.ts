@@ -89,6 +89,11 @@ export function useInspectEscrow(agreementId?: string) {
     actionName: string,
     txType: string,
     action: () => Promise<string>,
+    retryPayload?: {
+      contractId: string;
+      method: string;
+      args: any[];
+    }
   ) => {
     if (!address) {
       setModalOpen(true);
@@ -108,6 +113,7 @@ export function useInspectEscrow(agreementId?: string) {
         status: 'processing',
         description: `${actionName} for agreement #${numericAgreementId}`,
         agreementId: String(numericAgreementId),
+        retryPayload,
       });
 
       const txHash = await action();
@@ -117,7 +123,8 @@ export function useInspectEscrow(agreementId?: string) {
     } catch (error) {
       console.error(error);
       updateTransactionStatus(txId, 'failed');
-      setActionError(error instanceof Error ? error.message : `${actionName} failed`);
+      const { translateStellarError } = await import('@/lib/errors');
+      setActionError(translateStellarError(error));
     } finally {
       setActionLoading(null);
     }

@@ -34,11 +34,13 @@ echo "New WASM Installed. Hash: $NEW_WASM_HASH"
 
 # 3. Call upgrade on the contract
 echo "Invoking upgrade() on target contract $CONTRACT_ID..."
+CALLER_ADDR=$(stellar keys public-key "$SOURCE")
 stellar contract invoke \
     --id "$CONTRACT_ID" \
     --source-account "$SOURCE" \
     --network "$NETWORK" \
     -- upgrade \
+    --caller "$CALLER_ADDR" \
     --new_wasm_hash "$NEW_WASM_HASH"
 
 echo "=================================================="
