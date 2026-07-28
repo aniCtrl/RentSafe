@@ -13,10 +13,14 @@ import {
   AGREEMENT_STATUS_LABELS,
   formatStroopsToXlm,
   formatTimestamp,
+  formatAgreementId,
+  parseAgreementSlug,
   shortAddress,
 } from '@/lib/rentsafe';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
+const RentPaymentPanel = dynamic(() => import('@/components/dashboard/RentPaymentPanel'), { ssr: false });
+
 
 type InspectEscrowViewProps = {
   agreementId?: string;
@@ -43,7 +47,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
   const [disputeEvidenceRef, setDisputeEvidenceRef] = useState('');
   const [additionalEvidenceRef, setAdditionalEvidenceRef] = useState('');
 
-  const numericAgreementId = useMemo(() => Number(agreementId), [agreementId]);
+  const numericAgreementId = useMemo(() => parseAgreementSlug(agreementId || ''), [agreementId]);
   const isValidAgreementId = Number.isFinite(numericAgreementId) && numericAgreementId > 0;
 
   const {
@@ -192,13 +196,22 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="bg-[#ffffff] rounded-[24px] p-6 shadow-sm border border-[#e2e2e2] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="bg-[#ffffff] rounded-[24px] p-6 shadow-sm border border-[#e2e2e2] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h3 className="text-lg font-bold text-[#000000]">Agreement #{agreement.agreementId}</h3>
-                <div className="flex items-center gap-1.5 text-xs text-[#585f6c] mt-1 font-semibold">
-                  <span className="material-symbols-outlined text-sm">apartment</span>
-                  <span>{agreement.propertyDetails}</span>
-                </div>
+                <h3 className="text-lg font-bold text-[#000000]">
+                  {formatAgreementId(agreement.agreementId, agreement.createdAt)}
+                </h3>
+                {(role === 'Landlord' || role === 'Tenant') ? (
+                  <div className="flex items-center gap-1.5 text-xs text-[#585f6c] mt-1 font-semibold">
+                    <span className="material-symbols-outlined text-sm">apartment</span>
+                    <span>{agreement.propertyDetails}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-xs text-[#747878] mt-1">
+                    <span className="material-symbols-outlined text-sm">lock</span>
+                    <span>Property details — visible to landlord &amp; tenant only</span>
+                  </div>
+                )}
                 <div className="text-xs text-[#585f6c] font-mono mt-1 select-all">Shared contract: {agreement.contractId}</div>
               </div>
 
@@ -253,14 +266,14 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                   </div>
 
                   <div className="space-y-4 p-4 bg-[#f3f3f3] rounded-2xl border border-[#e2e2e2]">
-                    <h4 className="text-xs font-bold text-[#000000]">Landlord Settlement Request</h4>
-                    <p className="text-[10px] text-[#585f6c]">At move-out, the landlord can request a full refund or propose a deduction.</p>
+                    <h4 className="text-xs font-bold text-[#000000]">Move-Out Settlement</h4>
+                    <p className="text-[10px] text-[#585f6c]">At move-out, the landlord decides the deposit outcome: approve a full tenant refund, or propose a deduction.</p>
                     <button
                       disabled={actionLoading !== null || role !== 'Landlord' || ![1, 2].includes(agreement.status)}
                       onClick={() => runTrackedAction('Request Full Refund', 'request_full_refund', () => ContractService.requestFullRefund(agreement.agreementId, address))}
                       className="bg-black text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity w-full"
                     >
-                      {actionLoading === 'Request Full Refund' ? 'Submitting...' : 'Request Full Refund'}
+                      {actionLoading === 'Request Full Refund' ? 'Submitting...' : 'Approve Full Tenant Refund'}
                     </button>
 
                     <div className="space-y-3 pt-3 border-t border-[#c4c7c7]/50">
@@ -531,9 +544,20 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
               </div>
             )}
 
+            {agreement.status === 2 && address && (
+              <RentPaymentPanel
+                agreement={agreement}
+                walletAddress={address}
+                onPaymentComplete={(txHash) => {
+                  setActionTx(txHash);
+                  void refreshAll();
+                }}
+              />
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              <ActivityFeed agreementId={agreement.agreementId} disputeId={dispute?.disputeId} />
-              <TransactionCenter agreementId={agreement.agreementId} />
+              <ActivityFeed agreementId={numericAgreementId} disputeId={dispute?.disputeId} />
+              <TransactionCenter agreementId={numericAgreementId} />
             </div>
           </div>
         )}

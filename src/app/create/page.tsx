@@ -7,6 +7,7 @@ import AppShell from '@/components/app/AppShell';
 import { useAppStore } from '@/store/useAppStore';
 import { ContractService } from '@/services/contractService';
 import { AgreementChainService } from '@/services/chain/agreementService';
+import { formatAgreementId } from '@/lib/rentsafe';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 
@@ -86,14 +87,30 @@ export default function CreateAgreementPage() {
         address,
       );
 
-      setTxHash(result.txHash);
-      setCreatedAgreementId(result.agreementId);
-      setEscrowId(String(result.agreementId));
-      updateTransactionStatus(txId, 'confirmed', result.txHash, { agreementId: String(result.agreementId) });
+      // extractReturnValue may return 0 if the Soroban SDK metadata parse fails.
+      // Fall back to fetching the latest agreement IDs from the chain.
+      let resolvedId = result.agreementId;
+      if (!resolvedId || resolvedId <= 0) {
+        try {
+          const ids = await ContractService.getAgreementIds();
+          if (ids.length > 0) {
+            resolvedId = Math.max(...ids);
+          }
+        } catch (fallbackError) {
+          console.warn('Could not resolve agreement ID via fallback:', fallbackError);
+        }
+      }
 
-      window.setTimeout(() => {
-        router.push(`/inspect-escrow/${result.agreementId}`);
-      }, 2000);
+      setTxHash(result.txHash);
+      setCreatedAgreementId(resolvedId);
+      setEscrowId(String(resolvedId));
+      updateTransactionStatus(txId, 'confirmed', result.txHash, { agreementId: String(resolvedId) });
+
+      if (resolvedId > 0) {
+        window.setTimeout(() => {
+          router.push(`/inspect-escrow/${resolvedId}`);
+        }, 2500);
+      }
     } catch (submitError) {
       console.error(submitError);
       updateTransactionStatus(txId, 'failed');
@@ -132,10 +149,30 @@ export default function CreateAgreementPage() {
           {error && <div className="bg-[#ffdad6]/40 border border-[#ba1a1a]/20 text-[#ba1a1a] p-4 rounded-xl text-xs mb-6">{error}</div>}
 
           {txHash && createdAgreementId !== null && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-xs mb-6 font-mono break-all">
-              Agreement #{createdAgreementId} created successfully. Redirecting to the inspect page...
-              <br />
-              Hash: {txHash}
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-xs mb-6 space-y-2">
+              <p className="font-bold flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base">check_circle</span>
+                Agreement Created!
+              </p>
+              <p>
+                <span className="font-semibold">ID:</span>{' '}
+                <span className="font-mono">
+                  {createdAgreementId > 0
+                    ? formatAgreementId(createdAgreementId)
+                    : 'Resolving...'}
+                </span>
+              </p>
+              <p className="font-mono break-all text-[10px]">Hash: {txHash}</p>
+              {createdAgreementId > 0 && (
+                <a
+                  href={`/inspect-escrow/${createdAgreementId}`}
+                  className="inline-flex items-center gap-1 font-bold underline text-emerald-900 mt-1"
+                >
+                  View Agreement
+                  <span className="material-symbols-outlined text-[10px]">open_in_new</span>
+                </a>
+              )}
+              <p className="text-[10px] text-emerald-700">Redirecting automatically...</p>
             </div>
           )}
 

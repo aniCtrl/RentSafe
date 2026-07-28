@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { DEFAULT_PLATFORM_ADMIN_ID } from '@/lib/stellar';
 import { useAppStore } from '@/store/useAppStore';
+import { formatAgreementId, parseAgreementSlug } from '@/lib/rentsafe';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 
@@ -74,10 +75,21 @@ export default function AppShell({ title, children }: AppShellProps) {
   const searchSeed = useMemo(() => {
     if (pathname.startsWith('/inspect-escrow/')) {
       const parts = pathname.split('/');
-      return parts[parts.length - 1] || '';
+      const segment = parts[parts.length - 1] || '';
+      const numericId = parseAgreementSlug(segment);
+      if (!isNaN(numericId) && numericId > 0) {
+        return segment.toUpperCase().startsWith('RS-') ? segment.toUpperCase() : formatAgreementId(numericId);
+      }
+      return segment;
     }
 
-    return escrowId || '';
+    if (escrowId) {
+      const numericId = Number(escrowId);
+      if (!isNaN(numericId) && numericId > 0) {
+        return formatAgreementId(numericId);
+      }
+    }
+    return '';
   }, [pathname, escrowId]);
 
   const activeHref = useMemo(() => {
@@ -93,7 +105,13 @@ export default function AppShell({ title, children }: AppShellProps) {
       router.push('/inspect-escrow');
       return;
     }
-    router.push(`/inspect-escrow/${trimmed}`);
+    const numericId = parseAgreementSlug(trimmed);
+    if (!isNaN(numericId) && numericId > 0) {
+      const formatted = trimmed.toUpperCase().startsWith('RS-') ? trimmed.toUpperCase() : formatAgreementId(numericId);
+      router.push(`/inspect-escrow/${formatted}`);
+    } else {
+      router.push(`/inspect-escrow/${trimmed}`);
+    }
   };
 
   return (
@@ -158,7 +176,7 @@ export default function AppShell({ title, children }: AppShellProps) {
       </aside>
 
       <div className="flex-grow flex flex-col min-h-screen">
-        <header className="bg-[#ffffff] border-b border-[#e2e2e2] h-16 flex justify-between items-center px-6 sticky top-0 z-20">
+        <header className="bg-[#ffffff] border-b border-[#e2e2e2] h-16 min-h-[64px] shrink-0 flex justify-between items-center px-6 sticky top-0 z-20">
           <h2 className="text-base font-bold text-[#000000] tracking-tight">{title}</h2>
 
           <div className="flex items-center gap-4">

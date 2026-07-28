@@ -8,7 +8,7 @@ import ActivityFeed from '@/components/ActivityFeed';
 import TransactionCenter from '@/components/TransactionCenter';
 import { useUserAgreements, useDashboardMetrics } from '@/hooks/useChainQueries';
 import { useAppStore } from '@/store/useAppStore';
-import { AGREEMENT_STATUS_LABELS, formatStroopsToXlm } from '@/lib/rentsafe';
+import { AGREEMENT_STATUS_LABELS, formatStroopsToXlm, formatAgreementId } from '@/lib/rentsafe';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 
@@ -81,8 +81,11 @@ export default function DashboardOverview() {
                   <div className="space-y-3">
                     <div className="flex justify-between items-start gap-3">
                       <div>
-                        <h4 className="font-bold text-sm text-black">Agreement #{agreement.agreementId}</h4>
-                        <p className="text-xs text-[#585f6c] mt-1">{agreement.propertyDetails || 'Property details unavailable'}</p>
+                        <h4 className="font-bold text-sm text-black">
+                          {formatAgreementId(agreement.agreementId, agreement.createdAt)}
+                        </h4>
+                        <p className="text-[10px] text-[#747878] font-mono">On-chain ID: {formatAgreementId(agreement.agreementId, agreement.createdAt)}</p>
+                        <p className="text-xs text-[#585f6c] mt-0.5">{agreement.propertyDetails || '—'}</p>
                       </div>
                       <span
                         className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
@@ -109,8 +112,9 @@ export default function DashboardOverview() {
                     <span className="text-[10px] text-[#585f6c] font-semibold truncate">Shared contract: {agreement.contractId.slice(0, 8)}...{agreement.contractId.slice(-6)}</span>
                     <button
                       onClick={() => {
+                        const formattedId = formatAgreementId(agreement.agreementId, agreement.createdAt);
                         setEscrowId(String(agreement.agreementId));
-                        router.push(`/inspect-escrow/${agreement.agreementId}`);
+                        router.push(`/inspect-escrow/${formattedId}`);
                       }}
                       className="bg-black text-white px-3.5 py-1.5 rounded-lg text-[10px] font-bold hover:opacity-90 shrink-0"
                     >
@@ -124,7 +128,8 @@ export default function DashboardOverview() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-          <ActivityFeed agreementId={escrowId || undefined} />
+          {/* Pass no agreementId so ActivityFeed runs in "all agreements" mode — shows events across all agreements */}
+          <ActivityFeed />
           <TransactionCenter />
         </div>
       </div>
