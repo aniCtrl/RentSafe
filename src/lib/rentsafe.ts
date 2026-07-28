@@ -159,6 +159,28 @@ export const formatTimestamp = (timestamp: number) => {
   return new Date(timestamp * 1000).toLocaleString();
 };
 
+/**
+ * Returns a human-readable agreement reference in the format RS-YYYY-NNNNN.
+ * The on-chain numeric `agreementId` is padded to 5 digits.
+ * `createdAt` is a Unix timestamp (seconds) used to extract the creation year.
+ * Falls back to current year if createdAt is 0.
+ */
+export const formatAgreementId = (agreementId: number, createdAt?: number): string => {
+  const year = createdAt && createdAt > 0 ? new Date(createdAt * 1000).getFullYear() : new Date().getFullYear();
+  const padded = String(agreementId).padStart(5, '0');
+  return `RS-${year}-${padded}`;
+};
+
+export const parseAgreementSlug = (slug: string): number => {
+  if (!slug) return NaN;
+  const trimmed = slug.trim();
+  const rsMatch = trimmed.match(/^RS-\d{4}-(\d+)$/i);
+  if (rsMatch) return parseInt(rsMatch[1], 10);
+  const direct = parseInt(trimmed, 10);
+  return Number.isFinite(direct) && direct > 0 ? direct : NaN;
+};
+
+
 export const hasLockedFunds = (status: number) => ![0, 9, 10].includes(status);
 
 export const decodeAgreement = (raw: unknown, contractId: string): AgreementRecord => {
