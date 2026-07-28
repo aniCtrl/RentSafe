@@ -30,7 +30,7 @@ def main():
     dispute_id = meta["dispute"]["address"]
 
     # Gather roles
-    admin = os.getenv("RENTSAFE_PLATFORM_ADDRESS") or "GBKEWLPR74ZPGJV7PGQAEMMKUQ4N35JD4SC23CCHNKYZRKIQA7NSVMKT"
+    admin = os.getenv("RENTSAFE_PLATFORM_ADDRESS") or "GA2C5CQ45P36CQ5QEZIJXQOFG6KDCZHXUDEHUMESDQ5D5JB5IWHGWTGJ"
     token = os.getenv("RENTSAFE_TOKEN_ADDR") or "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC" # Native XLM SAC on testnet
 
     print("--------------------------------------------------")
@@ -46,7 +46,7 @@ def main():
     init_dispute_tx = run_cmd([
         "stellar", "contract", "invoke",
         "--id", dispute_id,
-        "--source-account", "RENTSAFE_PLATFORM",
+        "--source-account", "rentsafe-deployer",
         "--network", network,
         "--", "initialize",
         "--admin", admin,
@@ -58,7 +58,7 @@ def main():
     init_escrow_tx = run_cmd([
         "stellar", "contract", "invoke",
         "--id", escrow_id,
-        "--source-account", "RENTSAFE_PLATFORM",
+        "--source-account", "rentsafe-deployer",
         "--network", network,
         "--", "initialize",
         "--admin", admin,

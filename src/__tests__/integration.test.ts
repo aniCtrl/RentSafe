@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import {
+  Account,
   Contract,
   TransactionBuilder,
   Networks,
@@ -149,7 +150,7 @@ async function invokeContractWithKeypair(
 // Read-only getter helper
 async function readContractView(contractId: string, method: string, args: xdr.ScVal[] = []): Promise<any> {
   const DUMMY_PUBLIC_KEY = 'GBSJ6OLI3XRFWDWJJBW6C3H2EXKMFQQVFEKYNV6DHHGM5FHYJ3M7MM5Y';
-  const account = await server.getAccount(DUMMY_PUBLIC_KEY);
+  const account = new Account(DUMMY_PUBLIC_KEY, '0');
   const contract = new Contract(contractId);
 
   const transaction = new TransactionBuilder(account, {
@@ -160,9 +161,12 @@ async function readContractView(contractId: string, method: string, args: xdr.Sc
     .setTimeout(30)
     .build();
 
-  const sim = (await server.simulateTransaction(transaction)) as any;
+  const sim = await server.simulateTransaction(transaction);
+  if (rpc.Api.isSimulationError(sim)) {
+    throw new Error(`Simulation error for ${method}: ${sim.error}`);
+  }
   if (sim.result?.retval) {
-    return scValToNative(sim.result.retval);
+    return scValToNative(sim.result?.retval);
   }
   throw new Error('No return value from simulation');
 }
