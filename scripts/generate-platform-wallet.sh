@@ -62,10 +62,10 @@ if stellar keys public-key "$ALIAS" >/dev/null 2>&1; then
 fi
 
 echo "→ Generating Stellar identity '$ALIAS' on $NETWORK..."
-stellar keys generate "$ALIAS" --network "$NETWORK" --rpc-url "$RPC_URL"
+stellar keys generate "$ALIAS" --network "$NETWORK"
 
 echo "→ Funding '$ALIAS' on $NETWORK via Friendbot..."
-stellar keys fund "$ALIAS" --network "$NETWORK" --rpc-url "$RPC_URL"
+stellar keys fund "$ALIAS" --network "$NETWORK"
 
 PUBLIC_KEY=$(stellar keys public-key "$ALIAS")
 SECRET_KEY=$(stellar keys secret "$ALIAS")

@@ -261,10 +261,10 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 * **Demo Video Walkthrough**: `<PASTE_DEMO_VIDEO_URL_HERE>`
 
 ### Active Testnet Smart Contracts:
-* **Escrow Contract Address**: `<PASTE_ESCROW_CONTRACT_ID>`
-* **Dispute Contract Address**: `<PASTE_DISPUTE_CONTRACT_ID>`
-* **Escrow Init Tx Hash**: `<PASTE_INIT_ESCROW_TX_HASH>`
-* **Dispute Init Tx Hash**: `<PASTE_INIT_DISPUTE_TX_HASH>`
+* **Escrow Contract Address**: `CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F`
+* **Dispute Contract Address**: `CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ`
+* **Escrow Deploy Tx Hash**: `6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f`
+* **Dispute Deploy Tx Hash**: `04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127`
 
 *Explore these transactions and contract states on [Stellar.Expert](https://stellar.expert/explorer/testnet).*
 

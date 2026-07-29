@@ -14,7 +14,23 @@ def run_cmd(args):
     print(result.stdout)
     return result.stdout.strip()
 
+def load_env():
+    env_path = ".env"
+    if os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split("=", 1)
+                if len(parts) == 2:
+                    key, val = parts[0].strip(), parts[1].strip()
+                    if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                        val = val[1:-1]
+                    os.environ[key] = val
+
 def main():
+    load_env()
     network = "testnet"
     if len(sys.argv) > 1:
         network = sys.argv[1]
@@ -39,23 +55,32 @@ def main():
 
     # Gather roles
     admin = os.getenv("RENTSAFE_PLATFORM_ADDRESS") or "GA2C5CQ45P36CQ5QEZIJXQOFG6KDCZHXUDEHUMESDQ5D5JB5IWHGWTGJ"
+    admin_secret = os.getenv("RENTSAFE_PLATFORM_SECRET_KEY")
     token = os.getenv("RENTSAFE_TOKEN_ADDR") or "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC" # Native XLM SAC on testnet
+
+    if not admin_secret:
+        print("Error: RENTSAFE_PLATFORM_SECRET_KEY is not set in .env. The admin must co-sign initialize() calls.")
+        sys.exit(1)
 
     print("--------------------------------------------------")
     print(f"Initializing RentSafe Contracts on {network}")
-    print(f"Source Identity: {source_identity}")
-    print(f"Escrow:          {escrow_id}")
-    print(f"Dispute:         {dispute_id}")
-    print(f"Platform Admin:  {admin}")
-    print(f"Token Asset:     {token}")
+    print(f"Fee Payer (source): {source_identity}")
+    print(f"Admin Signer:       {admin}")
+    print(f"Escrow:             {escrow_id}")
+    print(f"Dispute:            {dispute_id}")
+    print(f"Platform Admin:     {admin}")
+    print(f"Token Asset:        {token}")
     print("--------------------------------------------------")
 
     # 1. Initialize Dispute
     print("Invoking Dispute initialize()...")
+    # The admin must call initialize() because admin.require_auth() is checked inside.
+    # We use admin_secret as the source-account so the CLI automatically signs the
+    # admin's auth entry. The deployer identity is NOT needed here.
     init_dispute_tx = run_cmd([
         "stellar", "contract", "invoke",
         "--id", dispute_id,
-        "--source-account", source_identity,
+        "--source-account", admin_secret,
         "--network", network,
         "--", "initialize",
         "--admin", admin,
@@ -67,7 +92,7 @@ def main():
     init_escrow_tx = run_cmd([
         "stellar", "contract", "invoke",
         "--id", escrow_id,
-        "--source-account", source_identity,
+        "--source-account", admin_secret,
         "--network", network,
         "--", "initialize",
         "--admin", admin,
