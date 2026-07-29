@@ -1,0 +1,21 @@
+# Ignore Rust build output directory (can be very large)
+target/
+
+# Ignore local Cargo files
+Cargo.lock
+Cargo.toml
+
+# Ignore smart contract Rust sources (not needed by Vercel frontend)
+contracts/
+
+# Ignore deployment and admin scripts
+scripts/
+
+# Ignore local environment files (configure these in the Vercel dashboard instead)
+.env
+.env.local
+.env.*.local
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
