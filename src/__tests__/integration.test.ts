@@ -12,9 +12,18 @@ import {
   xdr,
 } from '@stellar/stellar-sdk';
 
+const cleanEnvVar = (val: string | undefined): string | undefined => {
+  if (!val) return undefined;
+  const trimmed = val.trim();
+  if (trimmed === '' || trimmed === '[SENSITIVE]' || trimmed.includes('[SENSITIVE]') || trimmed.startsWith('[')) {
+    return undefined;
+  }
+  return trimmed;
+};
+
 // Deployed contract addresses and role credentials
-const ESCROW_CONTRACT_ID = process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID || 'CDMI23JKHYAH46CTTU4F7ME57PRCZH7FMJJYFZEVPUAD6Y36T3H6OIVQ';
-const DISPUTE_CONTRACT_ID = process.env.NEXT_PUBLIC_DISPUTE_CONTRACT_ID || 'CD7FXU24BREXPOCI347GK3H6HYXNSJQ3BE3I7M5XEAHWXRB6XG63KVIB';
+const ESCROW_CONTRACT_ID = cleanEnvVar(process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID) || 'CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F';
+const DISPUTE_CONTRACT_ID = cleanEnvVar(process.env.NEXT_PUBLIC_DISPUTE_CONTRACT_ID) || 'CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ';
 
 const LANDLORD_SECRET = 'SCLTZBM4PFXT7SUARDTELDCR3YFYVCODPSCMO3CDOFWEAEK7QQNPTU3C';
 const TENANT_SECRET = 'SCWFNF4IB6I76ZZF66K7IRKQEIO2XPIGOMBNZB67EZWABRGANU6QWUCM';
