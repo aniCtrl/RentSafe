@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useWalletConnect } from '@/hooks/useWalletConnect';
 
 interface WalletConnectModalProps {
@@ -9,12 +9,19 @@ interface WalletConnectModalProps {
 }
 
 export default function WalletConnectModal({ isOpen, onClose }: WalletConnectModalProps) {
-  const { connecting, connectWallet } = useWalletConnect();
+  const { connectWallet } = useWalletConnect();
+  const lastOpenRef = useRef(false);
 
   useEffect(() => {
-    if (!isOpen || connecting) return;
-    connectWallet(onClose);
-  }, [isOpen, connecting, connectWallet, onClose]);
+    if (isOpen) {
+      if (!lastOpenRef.current) {
+        lastOpenRef.current = true;
+        connectWallet(onClose);
+      }
+    } else {
+      lastOpenRef.current = false;
+    }
+  }, [isOpen, connectWallet, onClose]);
 
   return null;
 }

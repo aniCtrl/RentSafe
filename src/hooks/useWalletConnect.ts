@@ -4,6 +4,9 @@ import { useState, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { NATIVE_XLM_ID, initializeWalletsKit, readContractView } from '@/lib/stellar';
 
+// Global singleton flag to prevent concurrent/repeated wallet connection flows
+let connectionInProgress = false;
+
 export function useWalletConnect() {
   const {
     address,
@@ -28,7 +31,8 @@ export function useWalletConnect() {
   }, [setBalance]);
 
   const connectWallet = useCallback(async (onClose?: () => void) => {
-    if (connecting) return;
+    if (connecting || connectionInProgress) return;
+    connectionInProgress = true;
     setConnecting(true);
 
     try {
@@ -49,6 +53,7 @@ export function useWalletConnect() {
         alert(`Wallet Connection Error: ${translateStellarError(err)}`);
       }
     } finally {
+      connectionInProgress = false;
       setConnecting(false);
       if (onClose) onClose();
     }
