@@ -45,15 +45,26 @@ updateFile('src/__tests__/integration.test.ts', [
     [/(DISPUTE_CONTRACT_ID\s*=.*\|\|\s*')[^']+'/, `$1${disputeId}'`]
 ]);
 
-// 3. README.md & DEPLOYMENT.md markdown tables
+// 3. README.md
 updateFile('README.md', [
-    [/(\|\s*\*\*RentSafe Escrow\*\*\s*\|\s*`)[^`]+(`\s*\|\s*\[StellarExpert ↗\]\(https:\/\/stellar\.expert\/explorer\/[^\/]+\/contract\/)[^`\)]+(\))/, `$1${escrowId}$2${escrowId}$3`],
-    [/(\|\s*\*\*RentSafe Dispute\*\*\s*\|\s*`)[^`]+(`\s*\|\s*\[StellarExpert ↗\]\(https:\/\/stellar\.expert\/explorer\/[^\/]+\/contract\/)[^`\)]+(\))/, `$1${disputeId}$2${disputeId}$3`]
+    // Top badges
+    [/(contract\/)C[A-Z2-7]{55}("><img [^>]+alt="EscrowContract")/gi, `$1${escrowId}$2`],
+    [/(contract\/)C[A-Z2-7]{55}("><img [^>]+alt="DisputeContract")/gi, `$1${disputeId}$2`],
+    // Section 3 Address lines
+    [/(### 3\.1 RentSafe Escrow Registry[\s\S]*?\*\*Address\*\*:\s*\[`)C[A-Z2-7]{55}(`\]\(https:\/\/stellar\.expert\/explorer\/[^\/]+\/contract\/)C[A-Z2-7]{55}(\))/i, `$1${escrowId}$2${escrowId}$3`],
+    [/(### 3\.2 RentSafe Dispute Registry[\s\S]*?\*\*Address\*\*:\s*\[`)C[A-Z2-7]{55}(`\]\(https:\/\/stellar\.expert\/explorer\/[^\/]+\/contract\/)C[A-Z2-7]{55}(\))/i, `$1${disputeId}$2${disputeId}$3`],
+    // Section 10 Tables
+    [/(\|\s*\*\*RentSafe Escrow\*\*\s*\|\s*`)[^`]+(`\s*\|\s*\[StellarExpert ↗\]\(https:\/\/stellar\.expert\/explorer\/[^\/]+\/contract\/)[^`\)]+(\))/gi, `$1${escrowId}$2${escrowId}$3`],
+    [/(\|\s*\*\*RentSafe Dispute\*\*\s*\|\s*`)[^`]+(`\s*\|\s*\[StellarExpert ↗\]\(https:\/\/stellar\.expert\/explorer\/[^\/]+\/contract\/)[^`\)]+(\))/gi, `$1${disputeId}$2${disputeId}$3`]
 ]);
 
+// 4. DEPLOYMENT.md
 updateFile('DEPLOYMENT.md', [
-    [/(\|\s*\*\*RentSafe Escrow\*\*\s*\|\s*`)[^`]+(`)/, `$1${escrowId}$2`],
-    [/(\|\s*\*\*RentSafe Dispute\*\*\s*\|\s*`)[^`]+(`)/, `$1${disputeId}$2`]
+    // Section 4 table
+    [/(\|\s*\*\*RentSafe Escrow\*\*\s*\|\s*`)[^`]+(`\s*\|\s*\[StellarExpert ↗\]\(https:\/\/stellar\.expert\/explorer\/[^\/]+\/contract\/)[^`\)]+(\))/gi, `$1${escrowId}$2${escrowId}$3`],
+    [/(\|\s*\*\*RentSafe Dispute\*\*\s*\|\s*`)[^`]+(`\s*\|\s*\[StellarExpert ↗\]\(https:\/\/stellar\.expert\/explorer\/[^\/]+\/contract\/)[^`\)]+(\))/gi, `$1${disputeId}$2${disputeId}$3`],
+    // Section 7 upgrades example
+    [/(upgrade\.sh\s+testnet\s+)C[A-Z2-7]{55}/gi, `$1${escrowId}`]
 ]);
 
 console.log('Successfully synchronized configuration files, source code, and documentation.');
