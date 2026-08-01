@@ -1,15 +1,15 @@
-# RentSafe Smart Contract Deployment & Testing Guide
+# RentSafe Smart Contract Deployment & Operations Guide
 
-This guide details the step-by-step process for building, testing, deploying, initializing, and upgrading the RentSafe smart contracts on the Stellar Testnet.
+This guide details the step-by-step process for setting up identities, building, deploying, initializing, testing, and upgrading the RentSafe smart contracts on the Stellar Testnet.
 
 ---
 
-## 1. Prerequisites & Verification
+## 1. Prerequisites
 
-Before deploying, ensure you have the following tools installed and configured:
+Before running deployment commands, ensure you have installed the required toolchain:
 
 ### 1.1. Install Stellar CLI
-The Stellar CLI is required to compile WASM bytecode and interact with the Stellar network. Install it using Cargo:
+The Stellar CLI is required to compile WASM bytecode and interact with the Stellar network:
 
 ```bash
 cargo install --locked stellar-cli
@@ -20,114 +20,109 @@ Verify installation:
 stellar --version
 ```
 
-### 1.2. Run Automated Contract & Frontend Test Suites
-Before deploying to Testnet, verify both smart contracts and frontend components pass unit tests:
+---
 
+## 2. Setup Live Wallets & Identities
+
+Before deploying, generate and fund your live developer identities on the Stellar Testnet:
+
+### 2.1. Generate Deployer Identity (`rentsafe-deployer-live`)
 ```bash
-# 1. Run Rust Soroban Smart Contract Unit Tests
-cargo test
-
-# 2. Run Next.js & Frontend Vitest Unit Tests
-npm run test
+stellar keys generate rentsafe-deployer-live --network testnet
+stellar keys fund rentsafe-deployer-live --network testnet
 ```
 
-### 1.3. Set Up & Fund a Deployer Account
-Generate and fund a developer identity (`rentsafe-deployer`) on the Stellar Testnet:
+### 2.2. Generate Admin Identity (`rentsafe-admin-live`)
 ```bash
-stellar keys generate rentsafe-deployer --network testnet
-stellar keys fund rentsafe-deployer --network testnet
+stellar keys generate rentsafe-admin-live --network testnet
+stellar keys fund rentsafe-admin-live --network testnet
+```
+
+Verify account public keys and balances:
+```bash
+stellar keys public-key rentsafe-deployer-live
+stellar keys public-key rentsafe-admin-live
 ```
 
 ---
 
-## 2. Step-by-Step Testnet Deployment
+## 3. Execute Single Deployment & Initialization Script
 
-We use the automated scripts inside `scripts/` to build, deploy, and generate deployment metadata.
+Deploy and initialize all smart contracts on-chain in a single step using the pure-bash deployment script:
 
-### 2.1. Run the Deployment Script
-Execute `deploy.sh` to compile the contracts and deploy them to the Stellar Testnet:
 ```bash
-./scripts/deploy.sh testnet rentsafe-deployer
+./scripts/deploy.sh testnet rentsafe-deployer-live rentsafe-admin-live
 ```
 
-#### What This Script Does:
-1. Compiles both `rentsafe_escrow` and `rentsafe_dispute` contracts into WebAssembly (WASM).
-2. Deploys the bytecode to the Stellar Testnet.
-3. Automatically computes SHA-256 hashes for both compiled WASM binaries.
-4. Stores contract addresses and WASM hashes in `deployments/testnet.json`.
+### What This Single Script Automates:
+1. Verifies/generates `rentsafe-deployer-live` and `rentsafe-admin-live` identities.
+2. Compiles WASM contract binaries (`rentsafe_escrow.wasm` and `rentsafe_dispute.wasm`) via `stellar contract build`.
+3. Deploys Escrow & Dispute contracts to the Stellar Testnet.
+4. Computes SHA-256 WASM bytecode hashes.
+5. Invokes `initialize` on Dispute contract with the platform admin public key and Escrow contract address.
+6. Invokes `initialize` on Escrow contract with the platform admin public key, Dispute contract address, and native XLM asset address (`CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`).
+7. Writes complete JSON metadata to `deployments/testnet.json`.
+8. Programmatically syncs contract addresses into `.env`, `.env.example`, `README.md`, `DEPLOYMENT.md`, `src/lib/stellar.ts`, and `src/__tests__/integration.test.ts`.
 
 ---
 
-## 3. Initializing and Wiring Inter-Contract Dependency
+## 4. Captured Contract Addresses & On-Chain Verification
 
-The Escrow and Dispute contracts cross-reference each other and require two-phase initialization.
+The output metadata is stored permanently in `deployments/testnet.json`. Current live testnet contract configuration:
 
-### 3.1. Generate the Platform Admin Wallet
-Generate a dedicated platform admin wallet:
-```bash
-./scripts/generate-platform-wallet.sh rentsafe-admin
-```
-This script:
-1. Generates and funds the `rentsafe-admin` identity.
-2. Stores `RENTSAFE_PLATFORM_ADDRESS` and `RENTSAFE_PLATFORM_SECRET_KEY` in `.env`.
-
-### 3.2. Run the Initialization Script
-Run `initialize.sh` (or `python3 scripts/initialize.py`):
-```bash
-./scripts/initialize.sh testnet rentsafe-deployer
-```
-
-#### What This Script Does:
-1. Invokes `initialize` on Dispute contract with the admin address and Escrow address.
-2. Invokes `initialize` on Escrow contract with the admin address, Dispute address, and native XLM asset address (`CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`).
-3. Records transaction hashes into `deployments/testnet.json`.
-4. Programmatically updates contract ID tables and fallbacks in `.env`, `.env.example`, `README.md`, `src/lib/stellar.ts`, and `src/__tests__/integration.test.ts`.
-
----
-
-## 4. Current Deployed Contracts & Hashes
-
-The current live contracts on Stellar Testnet are:
-
-| Contract | Address | WASM Hash |
+| Contract | Address | Explorer |
 | :--- | :--- | :--- |
-| **RentSafe Escrow** | `CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F` | `8984492a8ba291fbb4ccced72dba508127e8e10136ef11755f1f79d38c4c216c` |
-| **RentSafe Dispute** | `CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ` | `1e276b85f2fcf604a10937e17e1ef6518c410b869c6e3cb5c29acfa01af5d725` |
+| **RentSafe Escrow** | `CCAJ6VCVS7VOKPIIMJ7KI523EAKIDBQ3JNEC3OQ2XNL6FWER2FHGDD25` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F) |
+| **RentSafe Dispute** | `CDI5FA3JE6SEY7IE34C6LFNIPVFB3D4KA43NASQO55C4YRTIOCVCWQQA` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CCEXHVWVQTZZEBE7EPDWFTJ3MNWFUP2YX63PCVNTUSATVCRQNT7LSOEZ) |
 
 ---
 
 ## 5. Environment Variables Configuration
 
-Configure local environment variables in `.env`:
+Configure your local environment variables in `.env`:
 
 | Env Variable | Meaning / Description | Example Value | Where to Get Value |
 | :--- | :--- | :--- | :--- |
 | `NEXT_PUBLIC_ESCROW_CONTRACT_ID` | Address of deployed Escrow smart contract | `CARQKV7WBR3GRNY3...` | `deployments/testnet.json` |
 | `NEXT_PUBLIC_DISPUTE_CONTRACT_ID` | Address of deployed Dispute smart contract | `CCEXHVWVQTZZEBE7...` | `deployments/testnet.json` |
 | `STELLAR_NETWORK` | Target Stellar network environment | `testnet` | `testnet` or `public` |
-| `RENTSAFE_PLATFORM_ADDRESS` | Public key of platform admin entity | `GCLSFD4ILBZCVMD...` | Generated in step 3.1 |
-| `RENTSAFE_PLATFORM_SECRET_KEY` | Secret key of platform admin | `SA747A2HYFO5JA...` | Generated in step 3.1 |
+| `RENTSAFE_PLATFORM_ADDRESS` | Public key of platform admin entity | `GCLSFD4ILBZCVMD...` | Generated in step 2.2 |
+| `RENTSAFE_PLATFORM_SECRET_KEY` | Secret key of platform admin | `SA747A2HYFO5JA...` | Generated in step 2.2 |
 
 ---
 
-## 6. Contract Upgrades
+## 6. Automated Testing & CI/CD Verification
 
-To update smart contract bytecode on-chain:
+Run unit test suites for both Soroban smart contracts and frontend components:
+
 ```bash
-./scripts/upgrade.sh testnet <CONTRACT_ID> <PATH_TO_WASM> <ADMIN_IDENTITY_ALIAS>
+# 1. Run Rust Soroban Smart Contract Tests
+cargo test
+
+# 2. Run Next.js Frontend Vitest Unit Tests
+npm run test
+```
+
+---
+
+## 7. Contract Upgrades
+
+To upgrade contract bytecode on-chain:
+```bash
+./scripts/upgrade.sh testnet <CONTRACT_ID> <PATH_TO_WASM> rentsafe-admin-live
 ```
 
 Example:
 ```bash
-./scripts/upgrade.sh testnet CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F target/wasm32v1-none/release/rentsafe_escrow.wasm rentsafe-admin
+./scripts/upgrade.sh testnet CARQKV7WBR3GRNY3UMAFM4BJJPHAGOI4OPWH2LQLIA2SM55OEPZ5FD7F target/wasm32v1-none/release/rentsafe_escrow.wasm rentsafe-admin-live
 ```
 
 ---
 
-## 7. Deploying Frontend to Vercel
+## 8. Deploying Frontend to Vercel
 
 1. Push your repository to GitHub.
-2. Configure Environment Variables in Vercel (**Settings > Environment Variables**):
+2. In the Vercel Dashboard, configure **Settings > Environment Variables**:
    * `NEXT_PUBLIC_ESCROW_CONTRACT_ID`
    * `NEXT_PUBLIC_DISPUTE_CONTRACT_ID`
    * `STELLAR_NETWORK` (`testnet`)
