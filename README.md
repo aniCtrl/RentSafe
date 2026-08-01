@@ -8,8 +8,8 @@
 </p>
 
 <p align="center">
-  <a href="https://stellar.expert/explorer/testnet/contract/CA3DCO4OZEWQR2GKIBU4W3OIC3U7MPZDI6TWL7MAZE2S2G6KA55UUT34"><img src="https://img.shields.io/badge/EscrowContract-Testnet-blue?logo=stellar" alt="EscrowContract"/></a>
-  <a href="https://stellar.expert/explorer/testnet/contract/CA5MT45EXTOJH3UPKMYWW2WHPWMXOZ6RALRM5JUQNMSWJZRNT2WF3YX3"><img src="https://img.shields.io/badge/DisputeContract-Testnet-blue?logo=stellar" alt="DisputeContract"/></a>
+  <a href="https://stellar.expert/explorer/testnet/contract/CAUQOF5U6PUWNBZYWUAWBMYXQNPBXUQQWH3EHO6GQMUFKKNFQBWKXEUD"><img src="https://img.shields.io/badge/EscrowContract-Testnet-blue?logo=stellar" alt="EscrowContract"/></a>
+  <a href="https://stellar.expert/explorer/testnet/contract/CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W"><img src="https://img.shields.io/badge/DisputeContract-Testnet-blue?logo=stellar" alt="DisputeContract"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-brightgreen" alt="License"/></a>
   <img src="https://img.shields.io/badge/tests-passing-brightgreen" alt="Tests"/>
   <img src="https://img.shields.io/badge/build-passing-brightgreen" alt="Build"/>
@@ -88,7 +88,7 @@ RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 
 **Purpose**: Hosts configuration mapping, manages agreement registries, locks deposit funds, and triggers on-chain disbursements.
 
-**Address**: [`CA3DCO4OZEWQR2GKIBU4W3OIC3U7MPZDI6TWL7MAZE2S2G6KA55UUT34`](https://stellar.expert/explorer/testnet/contract/CA3DCO4OZEWQR2GKIBU4W3OIC3U7MPZDI6TWL7MAZE2S2G6KA55UUT34)
+**Address**: [`CAUQOF5U6PUWNBZYWUAWBMYXQNPBXUQQWH3EHO6GQMUFKKNFQBWKXEUD`](https://stellar.expert/explorer/testnet/contract/CAUQOF5U6PUWNBZYWUAWBMYXQNPBXUQQWH3EHO6GQMUFKKNFQBWKXEUD)
 
 #### Storage Model
 
@@ -109,7 +109,7 @@ RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 
 **Purpose**: Manages dispute records linked to agreements, gathers chronological evidence references from participants, and authorizes arbitrators to execute resolution payouts.
 
-**Address**: [`CA5MT45EXTOJH3UPKMYWW2WHPWMXOZ6RALRM5JUQNMSWJZRNT2WF3YX3`](https://stellar.expert/explorer/testnet/contract/CA5MT45EXTOJH3UPKMYWW2WHPWMXOZ6RALRM5JUQNMSWJZRNT2WF3YX3)
+**Address**: [`CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W`](https://stellar.expert/explorer/testnet/contract/CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W)
 
 #### Storage Model
 
@@ -242,8 +242,8 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 
 | Contract | Address | Explorer |
 |---|---|---|
-| **RentSafe Escrow** | `CA3DCO4OZEWQR2GKIBU4W3OIC3U7MPZDI6TWL7MAZE2S2G6KA55UUT34` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CA3DCO4OZEWQR2GKIBU4W3OIC3U7MPZDI6TWL7MAZE2S2G6KA55UUT34) |
-| **RentSafe Dispute** | `CA5MT45EXTOJH3UPKMYWW2WHPWMXOZ6RALRM5JUQNMSWJZRNT2WF3YX3` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CA5MT45EXTOJH3UPKMYWW2WHPWMXOZ6RALRM5JUQNMSWJZRNT2WF3YX3) |
+| **RentSafe Escrow** | `CAUQOF5U6PUWNBZYWUAWBMYXQNPBXUQQWH3EHO6GQMUFKKNFQBWKXEUD` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CAUQOF5U6PUWNBZYWUAWBMYXQNPBXUQQWH3EHO6GQMUFKKNFQBWKXEUD) |
+| **RentSafe Dispute** | `CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W) |
 | **Native XLM SAC** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` | [StellarExpert ↗](https://stellar.expert/explorer/testnet/contract/CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC) |
 
 #### RentSafe Escrow
