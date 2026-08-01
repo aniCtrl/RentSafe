@@ -200,8 +200,10 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 ## 7. CI/CD & Deployment
 
 ### 7.1 Automated CI & Testing (Pull Requests & Pushes)
-We configure automated integrations on GitHub Actions:
-* **Pull Request Checks** (`pr-checks.yml`): Runs on all PRs targeting `main` or `master`. Executes eslint, typescript compilation checks, smart contract WASM builds, contract unit tests, and Vitest suites.
+We configure automated CI/CD workflows on GitHub Actions (`.github/workflows/pr-checks.yml`):
+* **Rust Smart Contract Unit Tests**: Executes `cargo test` on all Soroban smart contracts.
+* **Frontend Component & Integration Tests**: Executes `npm run test` using Vitest across UI components and user flow routines.
+* **Linting & Type Safety**: Runs `npm run lint` and TypeScript compilation checks.
 
 ### 7.2 Automated Deploy (merge to main)
 * **Deploy to Vercel** (`deploy.yml`): Automatically builds and deploys the Next.js frontend to production on Vercel upon a merge to `main`.
@@ -270,8 +272,8 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 
 We appreciate your feedback and suggestions! Please use the following links to interact with our feedback portal:
 
-📝 Submit Feedback (Google Form): [Feedback Form ↗](https://forms.gle/9kgwCvEcJr4hvvYd7)
-📊 View Responses (Google Sheet): [Feedback Responses Sheet ↗](https://docs.google.com/spreadsheets/d/10yFdYF5G1gfuhXj6hv_vctEDTf28r-psNw4RGJ32YMw/edit?usp=sharing)
+* 📝 Submit Feedback (Google Form): [Feedback Form ↗](https://forms.gle/9kgwCvEcJr4hvvYd7)
+* 📊 View Responses (Google Sheet): [Feedback Responses Sheet ↗](https://docs.google.com/spreadsheets/d/10yFdYF5G1gfuhXj6hv_vctEDTf28r-psNw4RGJ32YMw/edit?usp=sharing)
 
 ---
 

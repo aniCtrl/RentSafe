@@ -5,10 +5,13 @@ import re
 import subprocess
 import sys
 
-def run_cmd(args):
+def run_cmd(args, allow_already_initialized=False):
     print(f"Running: {' '.join(args)}")
     result = subprocess.run(args, capture_output=True, text=True)
     if result.returncode != 0:
+        if allow_already_initialized and ("Error(Contract, #1)" in result.stderr or "AlreadyInitialized" in result.stderr):
+            print("Notice: Contract is already initialized on-chain.")
+            return "ALREADY_INITIALIZED"
         print(f"Error: {result.stderr}")
         sys.exit(result.returncode)
     print(result.stdout)
@@ -85,7 +88,7 @@ def main():
         "--", "initialize",
         "--admin", admin,
         "--escrow_contract", escrow_id
-    ])
+    ], allow_already_initialized=True)
 
     # 2. Initialize Escrow
     print("Invoking Escrow initialize()...")
@@ -98,7 +101,7 @@ def main():
         "--admin", admin,
         "--dispute_contract", dispute_id,
         "--asset", token
-    ])
+    ], allow_already_initialized=True)
 
     # Save transaction details back to deployments file
     meta["roles"] = {
@@ -196,12 +199,12 @@ def update_source_defaults(meta):
     if os.path.exists(stellar_ts):
         with open(stellar_ts, "r") as f:
             content = f.read()
-        content = re.sub(r"(DEFAULT_ESCROW_ID\s*=.*\|\|\s*')[^']+'", rf"\1{escrow_id}'", content)
-        content = re.sub(r"(DEFAULT_DISPUTE_ID\s*=.*\|\|\s*')[^']+'", rf"\1{dispute_id}'", content)
+        content = re.sub(r"(DEFAULT_ESCROW_ID\s*=.*\|\|\s*')[^']+'", rf"\g<1>{escrow_id}'", content)
+        content = re.sub(r"(DEFAULT_DISPUTE_ID\s*=.*\|\|\s*')[^']+'", rf"\g<1>{dispute_id}'", content)
         if escrow_hash:
-            content = re.sub(r"(DEFAULT_ESCROW_WASM_HASH\s*=.*\|\|\s*')[^']+'", rf"\1{escrow_hash}'", content)
+            content = re.sub(r"(DEFAULT_ESCROW_WASM_HASH\s*=.*\|\|\s*')[^']+'", rf"\g<1>{escrow_hash}'", content)
         if dispute_hash:
-            content = re.sub(r"(DEFAULT_DISPUTE_WASM_HASH\s*=.*\|\|\s*')[^']+'", rf"\1{dispute_hash}'", content)
+            content = re.sub(r"(DEFAULT_DISPUTE_WASM_HASH\s*=.*\|\|\s*')[^']+'", rf"\g<1>{dispute_hash}'", content)
         with open(stellar_ts, "w") as f:
             f.write(content)
 
@@ -209,8 +212,8 @@ def update_source_defaults(meta):
     if os.path.exists(test_file):
         with open(test_file, "r") as f:
             content = f.read()
-        content = re.sub(r"(ESCROW_CONTRACT_ID\s*=.*\|\|\s*')[^']+'", rf"\1{escrow_id}'", content)
-        content = re.sub(r"(DISPUTE_CONTRACT_ID\s*=.*\|\|\s*')[^']+'", rf"\1{dispute_id}'", content)
+        content = re.sub(r"(ESCROW_CONTRACT_ID\s*=.*\|\|\s*')[^']+'", rf"\g<1>{escrow_id}'", content)
+        content = re.sub(r"(DISPUTE_CONTRACT_ID\s*=.*\|\|\s*')[^']+'", rf"\g<1>{dispute_id}'", content)
         with open(test_file, "w") as f:
             f.write(content)
 

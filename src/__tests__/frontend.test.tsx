@@ -61,6 +61,9 @@ vi.mock('@stellar/stellar-sdk', () => {
       PUBLIC: 'Public Global Stellar Network ; September 2015',
     },
     rpc: {
+      Api: {
+        isSimulationError: vi.fn(() => false),
+      },
       Server: class {
         constructor() {}
         getAccount() { return Promise.resolve({}); }
@@ -68,6 +71,8 @@ vi.mock('@stellar/stellar-sdk', () => {
         sendTransaction() { return Promise.resolve({ status: 'PENDING', hash: 'tx-hash' }); }
         getTransaction() { return Promise.resolve({ status: 'SUCCESS' }); }
         simulateTransaction() { return Promise.resolve({ result: { retval: 'sim-val' } }); }
+        getLatestLedger() { return Promise.resolve({ sequence: 100 }); }
+        getEvents() { return Promise.resolve({ events: [] }); }
       }
     }
   };
