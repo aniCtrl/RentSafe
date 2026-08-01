@@ -183,9 +183,9 @@ export default function CreateAgreementView() {
             <div className="space-y-4 p-4 bg-[#f3f3f3] rounded-2xl border border-[#e2e2e2] text-xs">
               <h4 className="font-bold text-[#000000] border-b border-[#c4c7c7]/30 pb-2 mb-2">Summary Checklist</h4>
               <div className="space-y-2 text-[#585f6c]">
-                <p><strong className="text-black">Shared Contract:</strong> {sharedContractId}</p>
-                <p><strong className="text-black">Landlord:</strong> {landlord}</p>
-                <p><strong className="text-black">Tenant:</strong> {tenant}</p>
+                <p className="break-all"><strong className="text-black">Shared Contract:</strong> <span className="font-mono text-[10px] block mt-0.5 text-black">{sharedContractId}</span></p>
+                <p className="break-all"><strong className="text-black">Landlord:</strong> <span className="font-mono text-[10px] block mt-0.5 text-black">{landlord}</span></p>
+                <p className="break-all"><strong className="text-black">Tenant:</strong> <span className="font-mono text-[10px] block mt-0.5 text-black">{tenant}</span></p>
                 <p><strong className="text-black">Property:</strong> {propertyDetails}</p>
                 <p><strong className="text-black">Monthly Rent:</strong> {rent} XLM</p>
                 <p><strong className="text-black">Deposit Amount:</strong> {deposit} XLM</p>
