@@ -304,3 +304,4 @@ Open a PR — the `pr-checks` workflow must pass before review.
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
+
