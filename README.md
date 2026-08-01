@@ -229,10 +229,141 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 
 ## 9. Screenshots
 
-| Screen 1 | Screen 2 |
-|---|---|
-| ![Desktop UI](public/screenshots/desktop-ui.png) | ![Mobile UI](public/screenshots/mobile-ui.png) |
-| ![Test Verification](public/screenshots/tests.png) | ![CI/CD Pipeline](public/screenshots/cicd.png) |
+### 9.1 Desktop View
+
+<table border="0">
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Landing Page</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_landing.png" alt="Landing Page" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Dashboard Overview</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_dashboard.png" alt="Dashboard Overview" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Create Agreement (Step 1)</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_create_step_1.png" alt="Create Agreement Step 1" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Create Agreement (Step 2)</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_create_step_2.png" alt="Create Agreement Step 2" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Create Agreement (Step 3)</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_create_step_3.png" alt="Create Agreement Step 3" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Inspect Escrow &amp; Agreement</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_inspect.png" alt="Inspect Agreement" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Analytics &amp; Metrics</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_analytics.png" alt="Analytics View" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>On-Chain Activity Feed</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_activity.png" alt="Activity Feed" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Settings &amp; Configuration</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_settings.png" alt="Settings View" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Transaction Center</b></p>
+      <img src="screenshots/RentSafe_Screenshots/desktop_transaction.png" alt="Transaction Center" />
+    </td>
+  </tr>
+</table>
+
+### 9.2 Mobile View
+
+<table border="0">
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Mobile Landing Page</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_landing.png" alt="Mobile Landing Page" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Mobile Dashboard</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_dashboard.png" alt="Mobile Dashboard" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Create Agreement (Step 1)</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_create_step_1.png" alt="Mobile Create Step 1" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Create Agreement (Step 2)</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_create_step_2.png" alt="Mobile Create Step 2" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Create Agreement (Step 3)</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_create_step_3.png" alt="Mobile Create Step 3" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Inspect Escrow &amp; Agreement</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_inpect.png" alt="Mobile Inspect Agreement" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Mobile Analytics</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_analytics.png" alt="Mobile Analytics" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Mobile Activity Feed</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_activity.png" alt="Mobile Activity Feed" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Mobile Settings</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_settings.png" alt="Mobile Settings" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Mobile Navigation Menu</b></p>
+      <img src="screenshots/RentSafe_Screenshots/mobile_more_menu.png" alt="Mobile Navigation Menu" />
+    </td>
+  </tr>
+</table>
+
+### 9.3 CI/CD Workflow
+
+<table border="0">
+  <tr>
+    <td width="100%" align="center">
+      <p><b>GitHub Actions Workflow</b></p>
+      <img src="screenshots/RentSafe_Screenshots/ci-cd.png" alt="GitHub Actions CI/CD Pipeline" />
+    </td>
+  </tr>
+</table>
+
+### 9.4 Automated Testing
+
+<table border="0">
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Soroban Contract Tests (Cargo)</b></p>
+      <img src="screenshots/RentSafe_Screenshots/cargo-test.png" alt="Cargo Contract Tests" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Frontend Unit &amp; Integration Tests (Vitest)</b></p>
+      <img src="screenshots/RentSafe_Screenshots/vitest-test.png" alt="Vitest Frontend Tests" />
+    </td>
+  </tr>
+</table>
 
 ---
 
