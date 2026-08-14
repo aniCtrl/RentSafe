@@ -59,6 +59,19 @@ pub struct DisputeRecord {
     pub outcome_resolved_at: u64,
 }
 
+/// A participant-proposed split kept separately so existing dispute records
+/// remain decodable when the contract is upgraded.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct MutualResolution {
+    pub landlord_amount: i128,
+    pub tenant_amount: i128,
+    pub proposed_by: Address,
+    pub proposed_at: u64,
+    pub resolved: bool,
+    pub resolved_at: u64,
+}
+
 #[derive(Clone)]
 #[contracttype]
 pub enum DisputeDataKey {
@@ -67,6 +80,7 @@ pub enum DisputeDataKey {
     Dispute(u64),
     DisputeIds,
     DisputeByAgreement(u64),
+    MutualResolution(u64),
     Role(Address, Symbol),
 }
 
@@ -274,6 +288,90 @@ impl DisputeContract {
         Ok(())
     }
 
+    /// Propose a mutual settlement, or accept an identical proposal from the
+    /// other participant. The escrow callback performs the final split and
+    /// validates that it equals the locked deposit.
+    pub fn propose_mutual_resolution(
+        env: Env,
+        caller: Address,
+        dispute_id: u64,
+        landlord_amount: i128,
+        tenant_amount: i128,
+    ) -> Result<(), Error> {
+        caller.require_auth();
+
+        if landlord_amount < 0 || tenant_amount < 0 {
+            return Err(Error::InvalidOutcome);
+        }
+
+        let mut dispute = Self::get_dispute(env.clone(), dispute_id)?;
+        if dispute.status != DisputeStatus::Open
+            && dispute.status != DisputeStatus::EvidenceSubmitted
+        {
+            return Err(Error::InvalidState);
+        }
+
+        if caller != dispute.landlord && caller != dispute.tenant {
+            return Err(Error::InvalidParticipant);
+        }
+
+        let key = DisputeDataKey::MutualResolution(dispute_id);
+        if let Some(existing) = env.storage().persistent().get::<_, MutualResolution>(&key) {
+            if existing.landlord_amount == landlord_amount
+                && existing.tenant_amount == tenant_amount
+                && existing.proposed_by != caller
+            {
+                dispute.status = DisputeStatus::Resolved;
+                dispute.has_outcome = true;
+                dispute.outcome_landlord_amount = landlord_amount;
+                dispute.outcome_tenant_amount = tenant_amount;
+                dispute.outcome_resolved_at = env.ledger().timestamp();
+                Self::save_dispute(&env, &dispute);
+
+                let resolved = MutualResolution {
+                    landlord_amount,
+                    tenant_amount,
+                    proposed_by: existing.proposed_by,
+                    proposed_at: existing.proposed_at,
+                    resolved: true,
+                    resolved_at: env.ledger().timestamp(),
+                };
+                env.storage().persistent().set(&key, &resolved);
+
+                let config = Self::get_config(env.clone())?;
+                let escrow_client = EscrowRegistryClient::new(&env, &config.escrow_contract);
+                escrow_client.resolve_dispute_callback(
+                    &dispute.agreement_id,
+                    &landlord_amount,
+                    &tenant_amount,
+                );
+
+                env.events().publish(
+                    (Symbol::new(&env, "dispute_resolved"), dispute_id),
+                    (dispute.agreement_id, landlord_amount, tenant_amount),
+                );
+                return Ok(());
+            }
+        }
+
+        let proposal = MutualResolution {
+            landlord_amount,
+            tenant_amount,
+            proposed_by: caller.clone(),
+            proposed_at: env.ledger().timestamp(),
+            resolved: false,
+            resolved_at: 0,
+        };
+        env.storage().persistent().set(&key, &proposal);
+
+        env.events().publish(
+            (Symbol::new(&env, "mutual_resolution_proposed"), dispute_id),
+            (caller, landlord_amount, tenant_amount),
+        );
+
+        Ok(())
+    }
+
     pub fn resolve_dispute(
         env: Env,
         caller: Address,
@@ -358,6 +456,12 @@ impl DisputeContract {
             .storage()
             .persistent()
             .get(&DisputeDataKey::DisputeByAgreement(agreement_id)))
+    }
+
+    pub fn get_mutual_resolution(env: Env, dispute_id: u64) -> Option<MutualResolution> {
+        env.storage()
+            .persistent()
+            .get(&DisputeDataKey::MutualResolution(dispute_id))
     }
 
     fn require_initialized(env: &Env) -> Result<(), Error> {
@@ -525,6 +629,47 @@ mod test {
         assert_eq!(dispute.status, DisputeStatus::Resolved);
         assert!(dispute.has_outcome);
         assert_eq!(callback, (7_u64, 250_i128, 750_i128));
+    }
+
+    #[test]
+    fn test_mutual_resolution_requires_both_participants() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+
+        let escrow_address = env.register(StubEscrow, ());
+        let escrow_client = StubEscrowClient::new(&env, &escrow_address);
+        let dispute_address = env.register(DisputeContract, ());
+        let dispute_client = DisputeContractClient::new(&env, &dispute_address);
+
+        env.mock_all_auths_allowing_non_root_auth();
+        escrow_client.initialize(&landlord, &tenant);
+        dispute_client.initialize(&admin, &escrow_address);
+        let dispute_id = dispute_client.register_dispute(
+            &9_u64,
+            &landlord,
+            &tenant,
+            &landlord,
+            &String::from_str(&env, "Agree on a fair split"),
+        );
+        dispute_client.submit_evidence(
+            &dispute_id,
+            &tenant,
+            &String::from_str(&env, "ipfs://tenant-evidence"),
+        );
+
+        dispute_client.propose_mutual_resolution(&landlord, &dispute_id, &250_i128, &750_i128);
+        let pending = dispute_client.get_mutual_resolution(&dispute_id).unwrap();
+        assert!(!pending.resolved);
+        assert_eq!(dispute_client.get_dispute(&dispute_id).status, DisputeStatus::EvidenceSubmitted);
+
+        dispute_client.propose_mutual_resolution(&tenant, &dispute_id, &250_i128, &750_i128);
+        let resolved = dispute_client.get_mutual_resolution(&dispute_id).unwrap();
+        let dispute = dispute_client.get_dispute(&dispute_id);
+        assert!(resolved.resolved);
+        assert_eq!(dispute.status, DisputeStatus::Resolved);
+        assert_eq!(escrow_client.get_last_callback(), (9_u64, 250_i128, 750_i128));
     }
 
     #[test]
