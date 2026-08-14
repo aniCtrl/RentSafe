@@ -5,7 +5,7 @@ import { DEFAULT_ESCROW_ID, DEFAULT_DISPUTE_ID } from '@/lib/stellar';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function SettingsView() {
-  const { network, setNetwork, clearTransactions } = useAppStore();
+  const { network, setNetwork, clearTransactions, themeMode, setThemeMode, clearNotifications, createNotification } = useAppStore();
   const [copiedEscrow, setCopiedEscrow] = useState(false);
   const [copiedDispute, setCopiedDispute] = useState(false);
 
@@ -86,15 +86,38 @@ export default function SettingsView() {
         <h3 className="text-sm font-bold text-black uppercase tracking-wider mb-4">User Settings</h3>
 
         <div>
+          <label className="block text-xs font-semibold text-[#585f6c] mb-2">Appearance</label>
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Theme preference">
+            {(['light', 'dark'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={themeMode === mode}
+                onClick={() => setThemeMode(mode)}
+                className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold transition-colors ${themeMode === mode ? 'bg-[#000000] text-white border-black' : 'bg-white border-[#c4c7c7] text-[#585f6c]'}`}
+              >
+                <span className="material-symbols-outlined text-sm">{mode === 'light' ? 'light_mode' : 'dark_mode'}</span>
+                {mode === 'light' ? 'Light' : 'Dark'}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] text-[#585f6c]">Your preference is saved on this device and applies across RentSafe.</p>
+        </div>
+
+        <div>
           <label className="block text-xs font-semibold text-[#585f6c] mb-2">Switch Active Network</label>
           <div className="flex gap-2">
             <button
+              type="button"
+              aria-pressed={network === 'testnet'}
               onClick={() => setNetwork('testnet')}
               className={`flex-1 py-2.5 rounded-xl font-bold text-xs border transition-colors ${network === 'testnet' ? 'bg-[#000000] text-white border-black' : 'bg-white border-[#c4c7c7] text-[#585f6c]'}`}
             >
               Testnet (SDF Network)
             </button>
             <button
+              type="button"
+              aria-pressed={network === 'mainnet'}
               onClick={() => setNetwork('mainnet')}
               className={`flex-1 py-2.5 rounded-xl font-bold text-xs border transition-colors ${network === 'mainnet' ? 'bg-[#000000] text-white border-black' : 'bg-white border-[#c4c7c7] text-[#585f6c]'}`}
             >
@@ -111,7 +134,14 @@ export default function SettingsView() {
           <button
             onClick={() => {
               clearTransactions();
-              alert('Local buffers successfully flushed.');
+              clearNotifications();
+              createNotification({
+                id: `system:flush:${Date.now()}`,
+                type: 'system',
+                severity: 'success',
+                title: 'Session log cleared',
+                message: 'Local transaction and notification buffers were flushed on this device.',
+              });
             }}
             className="bg-[#ba1a1a] text-white px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90"
           >

@@ -8,7 +8,7 @@ import { useAppStore } from '@/store/useAppStore';
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 
 function LandingPage() {
-  const { address } = useAppStore();
+  const { address, themeMode, toggleTheme } = useAppStore();
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
@@ -27,6 +27,16 @@ function LandingPage() {
           </nav>
           
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              aria-label={themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              aria-pressed={themeMode === 'dark'}
+              title={themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              onClick={toggleTheme}
+              className="rounded-full p-2 text-[#585f6c] hover:bg-[#eeeeee] hover:text-[#000000]"
+            >
+              <span className="material-symbols-outlined text-lg">{themeMode === 'dark' ? 'light_mode' : 'dark_mode'}</span>
+            </button>
             {address ? (
               <>
                 <Link 

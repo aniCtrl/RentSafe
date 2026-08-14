@@ -28,11 +28,25 @@ export default function CreateAgreementView() {
     setEndDate,
     loading,
     error,
+    setError,
     txHash,
     createdAgreementId,
     sharedContractId,
     handleSubmit,
   } = useCreateAgreement();
+
+  const continueToNextStep = () => {
+    if (step === 1 && (!landlord.trim() || !tenant.trim())) {
+      setError('Enter both the landlord and tenant wallet addresses to continue.');
+      return;
+    }
+    if (step === 2 && (!propertyDetails.trim() || !rent || !deposit || !startDate || !endDate)) {
+      setError('Complete the property, amount, and lease date fields to continue.');
+      return;
+    }
+    setError(null);
+    setStep((current) => current + 1);
+  };
 
   return (
     <div className="flex justify-center">
@@ -46,10 +60,10 @@ export default function CreateAgreementView() {
             </h1>
             <span className="text-[10px] font-bold text-[#585f6c] uppercase tracking-wider">Step {step} of 3</span>
           </div>
-          <div className="flex gap-2">
-            <div className={`h-2 flex-1 rounded-full ${step >= 1 ? 'bg-black' : 'bg-[#eeeeee]'}`} />
-            <div className={`h-2 flex-1 rounded-full ${step >= 2 ? 'bg-black' : 'bg-[#eeeeee]'}`} />
-            <div className={`h-2 flex-1 rounded-full ${step >= 3 ? 'bg-black' : 'bg-[#eeeeee]'}`} />
+          <div className="flex gap-2" aria-label={`Create agreement progress: step ${step} of 3`} role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={step}>
+            <div className={`h-2 flex-1 rounded-full transition-colors ${step >= 1 ? 'bg-black' : 'bg-[#eeeeee]'}`} />
+            <div className={`h-2 flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-black' : 'bg-[#eeeeee]'}`} />
+            <div className={`h-2 flex-1 rounded-full transition-colors ${step >= 3 ? 'bg-black' : 'bg-[#eeeeee]'}`} />
           </div>
         </div>
 
@@ -90,7 +104,7 @@ export default function CreateAgreementView() {
 
         <form onSubmit={(event) => handleSubmit(event, () => setModalOpen(true))} className="space-y-6">
           {step === 1 && (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-fadeIn">
               <div>
                 <label className="block text-xs font-semibold text-[#585f6c] mb-1.5">Landlord Wallet Address</label>
                 <input
@@ -118,7 +132,7 @@ export default function CreateAgreementView() {
           )}
 
           {step === 2 && (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-fadeIn">
               <div>
                 <label className="block text-xs font-semibold text-[#585f6c] mb-1.5">Property</label>
                 <input
@@ -180,7 +194,7 @@ export default function CreateAgreementView() {
           )}
 
           {step === 3 && (
-            <div className="space-y-4 p-4 bg-[#f3f3f3] rounded-2xl border border-[#e2e2e2] text-xs">
+            <div className="space-y-4 p-4 bg-[#f3f3f3] rounded-2xl border border-[#e2e2e2] text-xs animate-fadeIn">
               <h4 className="font-bold text-[#000000] border-b border-[#c4c7c7]/30 pb-2 mb-2">Summary Checklist</h4>
               <div className="space-y-2 text-[#585f6c]">
                 <p className="break-all"><strong className="text-black">Shared Contract:</strong> <span className="font-mono text-[10px] block mt-0.5 text-black">{sharedContractId}</span></p>
@@ -204,7 +218,7 @@ export default function CreateAgreementView() {
             )}
 
             {step < 3 ? (
-              <button type="button" onClick={() => setStep((current) => current + 1)} className="bg-black text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition-opacity">
+              <button type="button" onClick={continueToNextStep} className="bg-black text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition-opacity">
                 Continue
               </button>
             ) : (

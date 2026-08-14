@@ -7,6 +7,9 @@ import dynamic from 'next/dynamic';
 import { DEFAULT_PLATFORM_ADMIN_ID } from '@/lib/stellar';
 import { useAppStore } from '@/store/useAppStore';
 import { formatAgreementId, parseAgreementSlug } from '@/lib/rentsafe';
+import { useWalletNotifications } from '@/hooks/useWalletNotifications';
+import NotificationCenter from '@/components/NotificationCenter';
+import ToastViewport from '@/components/ToastViewport';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 
@@ -78,7 +81,8 @@ const NAV_ITEMS: NavItem[] = [
 export default function AppShell({ title, children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { address, balance, escrowId, resetSession } = useAppStore();
+  const { address, balance, escrowId, resetSession, themeMode, toggleTheme } = useAppStore();
+  useWalletNotifications();
   const [modalOpen, setModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isAdmin = !!address && address.toLowerCase() === DEFAULT_PLATFORM_ADMIN_ID.toLowerCase();
@@ -217,6 +221,18 @@ export default function AppShell({ title, children }: AppShellProps) {
               />
             </form>
 
+            <NotificationCenter />
+            <button
+              type="button"
+              aria-label={themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              aria-pressed={themeMode === 'dark'}
+              title={themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              onClick={toggleTheme}
+              className="rounded-full p-2 text-[#585f6c] hover:bg-[#f3f3f3] hover:text-[#000000]"
+            >
+              <span className="material-symbols-outlined text-xl">{themeMode === 'dark' ? 'light_mode' : 'dark_mode'}</span>
+            </button>
+
             {address ? (
               <span className="text-xs font-semibold font-mono bg-[#eeeeee] px-2.5 py-1.5 rounded-lg border border-[#c4c7c7]/30 md:hidden text-black">
                 {address.slice(0, 4)}...{address.slice(-4)}
@@ -336,6 +352,7 @@ export default function AppShell({ title, children }: AppShellProps) {
       </nav>
 
       <WalletConnectModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+      <ToastViewport />
     </div>
   );
 }
