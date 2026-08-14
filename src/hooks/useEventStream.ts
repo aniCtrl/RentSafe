@@ -77,6 +77,8 @@ export function useEventStream(agreementId?: number | string | null, disputeId?:
         return `Dispute registered for agreement #${Number(parts[0] ?? 0)}`;
       case 'evidence_submitted':
         return `Additional evidence submitted by ${shortAddress(String(parts[0] ?? ''))}`;
+      case 'mutual_resolution_proposed':
+        return `Mutual settlement proposed: ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM to landlord, ${formatStroopsToXlm(asStroopsLike(parts[2]))} XLM to tenant`;
       default:
         return 'Agreement activity detected on-chain';
     }
@@ -170,7 +172,7 @@ export function useEventStream(agreementId?: number | string | null, disputeId?:
                   deduction_rejected: [0],
                   dispute_raised: [1],
                 }[action] ?? [])
-              : ({ dispute_registered: [1], evidence_submitted: [0] }[action] ?? []);
+              : ({ dispute_registered: [1], evidence_submitted: [0], mutual_resolution_proposed: [0] }[action] ?? []);
             const actorCandidates = actorIndexes
               .map((index) => valueParts[index])
               .filter((part) => typeof part === 'string' && part.length > 0)

@@ -67,9 +67,11 @@ const METHOD_PARAMETER_TYPES: Record<string, string[]> = {
 
   // Dispute contract methods
   'submit_evidence': ['u64', 'address', 'string'],
-  'resolve_dispute': ['u64', 'i128', 'i128'],
+  'propose_mutual_resolution': ['address', 'u64', 'i128', 'i128'],
+  'resolve_dispute': ['address', 'u64', 'i128', 'i128'],
   'get_dispute': ['u64'],
   'get_dispute_by_agreement': ['u64'],
+  'get_mutual_resolution': ['u64'],
 };
 
 function convertArg(arg: unknown) {
@@ -363,4 +365,3 @@ export async function sendXlmTransfer(
   await waitForTransaction(txHash);
   return txHash;
 }
-

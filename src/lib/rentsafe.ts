@@ -70,6 +70,16 @@ export interface DisputeRecord {
   outcomeTenantAmount: bigint;
   outcomeResolvedAt: number;
   resolutionTxHash?: string;
+  mutualResolution?: MutualResolutionRecord | null;
+}
+
+export interface MutualResolutionRecord {
+  landlordAmount: bigint;
+  tenantAmount: bigint;
+  proposedBy: string;
+  proposedAt: number;
+  resolved: boolean;
+  resolvedAt: number;
 }
 
 const getField = <T = unknown>(value: any, ...keys: string[]): T | undefined => {
@@ -247,3 +257,12 @@ export const decodeDispute = (raw: unknown): DisputeRecord => {
     outcomeResolvedAt: toNumber(getField(raw, 'outcome_resolved_at', 'outcomeResolvedAt')),
   };
 };
+
+export const decodeMutualResolution = (raw: unknown): MutualResolutionRecord => ({
+  landlordAmount: toBigInt(getField(raw, 'landlord_amount', 'landlordAmount')),
+  tenantAmount: toBigInt(getField(raw, 'tenant_amount', 'tenantAmount')),
+  proposedBy: toAddress(getField(raw, 'proposed_by', 'proposedBy')),
+  proposedAt: toNumber(getField(raw, 'proposed_at', 'proposedAt')),
+  resolved: Boolean(getField(raw, 'resolved')),
+  resolvedAt: toNumber(getField(raw, 'resolved_at', 'resolvedAt')),
+});

@@ -10,6 +10,7 @@ import {
   DisputeRecord,
   decodeAgreement,
   decodeDispute,
+  decodeMutualResolution,
   toNumber,
 } from '@/lib/rentsafe';
 
@@ -114,7 +115,23 @@ export class ContractService {
 
   static async getDisputeDetails(disputeId: number | string): Promise<DisputeRecord> {
     const raw = await readContractView(DEFAULT_DISPUTE_ID, 'get_dispute', [Number(disputeId)]);
-    return decodeDispute(raw);
+    const dispute = decodeDispute(raw);
+    let mutualResolution = null;
+    try {
+      const proposalRaw = await readContractView(DEFAULT_DISPUTE_ID, 'get_mutual_resolution', [Number(disputeId)]);
+      if (proposalRaw && typeof proposalRaw === 'object') {
+        const proposal = proposalRaw as Record<string, unknown>;
+        if (proposal.tag === 'Some') {
+          const someValue = proposal.values ?? proposal.value ?? proposal.Some;
+          mutualResolution = decodeMutualResolution(Array.isArray(someValue) ? someValue[0] : someValue);
+        } else if (proposal.tag !== 'None') {
+          mutualResolution = decodeMutualResolution(proposalRaw);
+        }
+      }
+    } catch {
+      // Older deployed dispute contracts do not expose mutual settlement yet.
+    }
+    return { ...dispute, mutualResolution };
   }
 
   static async getDisputeByAgreement(agreementId: number | string): Promise<DisputeRecord | null> {
@@ -152,6 +169,19 @@ export class ContractService {
     return writeContractMethod(DEFAULT_DISPUTE_ID, 'submit_evidence', [disputeId, params.submitter, params.evidenceRef], userAddress);
   }
 
+  static async proposeMutualResolution(
+    disputeId: number,
+    params: { landlordAmount: bigint; tenantAmount: bigint },
+    userAddress: string,
+  ) {
+    return writeContractMethod(
+      DEFAULT_DISPUTE_ID,
+      'propose_mutual_resolution',
+      [userAddress, disputeId, params.landlordAmount, params.tenantAmount],
+      userAddress,
+    );
+  }
+
   static async resolveDispute(
     disputeId: number,
     params: { landlordAmount: bigint; tenantAmount: bigint },
@@ -160,7 +190,7 @@ export class ContractService {
     return writeContractMethod(
       DEFAULT_DISPUTE_ID,
       'resolve_dispute',
-      [disputeId, params.landlordAmount, params.tenantAmount],
+      [userAddress, disputeId, params.landlordAmount, params.tenantAmount],
       userAddress,
     );
   }

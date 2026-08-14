@@ -28,6 +28,8 @@ export function useInspectEscrow(agreementId?: string) {
   const [disputeReason, setDisputeReason] = useState('');
   const [disputeEvidenceRef, setDisputeEvidenceRef] = useState('');
   const [additionalEvidenceRef, setAdditionalEvidenceRef] = useState('');
+  const [mutualLandlordAmount, setMutualLandlordAmount] = useState('0');
+  const [mutualTenantAmount, setMutualTenantAmount] = useState('0');
 
   const numericAgreementId = useMemo(() => parseAgreementSlug(agreementId || ''), [agreementId]);
   const isValidAgreementId = Number.isFinite(numericAgreementId) && numericAgreementId > 0;
@@ -45,6 +47,7 @@ export function useInspectEscrow(agreementId?: string) {
     error: disputeError,
     refetch: refetchDispute,
   } = useAgreementDispute(isValidAgreementId ? numericAgreementId : null);
+  const agreementDeposit = agreement?.depositAmount;
 
   useEffect(() => {
     if (!agreement) return;
@@ -58,6 +61,12 @@ export function useInspectEscrow(agreementId?: string) {
       setDeductionReason(agreement.deductionReason);
     }
   }, [agreement]);
+
+  useEffect(() => {
+    if (agreementDeposit === undefined) return;
+    setMutualLandlordAmount('0');
+    setMutualTenantAmount(formatStroopsToXlm(agreementDeposit));
+  }, [agreement?.agreementId, agreementDeposit, dispute?.disputeId]);
 
   const role = useMemo<TimelineRole>(() => {
     if (!address || !agreement) return 'Guest';
@@ -157,6 +166,10 @@ export function useInspectEscrow(agreementId?: string) {
     setDisputeEvidenceRef,
     additionalEvidenceRef,
     setAdditionalEvidenceRef,
+    mutualLandlordAmount,
+    setMutualLandlordAmount,
+    mutualTenantAmount,
+    setMutualTenantAmount,
     numericAgreementId,
     isValidAgreementId,
     refreshAll,

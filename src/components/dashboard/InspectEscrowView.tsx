@@ -50,10 +50,20 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
     setDisputeEvidenceRef,
     additionalEvidenceRef,
     setAdditionalEvidenceRef,
+    mutualLandlordAmount,
+    setMutualLandlordAmount,
+    mutualTenantAmount,
+    setMutualTenantAmount,
     numericAgreementId,
     refreshAll,
     runTrackedAction,
   } = useInspectEscrow(agreementId);
+
+  const mutualProposal = dispute?.mutualResolution ?? null;
+  const canResolveMutually = role === 'Landlord' || role === 'Tenant';
+  const proposalIsFromOtherParticipant = Boolean(
+    mutualProposal && address && mutualProposal.proposedBy.toLowerCase() !== address.toLowerCase(),
+  );
 
   if (!agreementId) {
     return (
@@ -486,6 +496,128 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                         >
                           {actionLoading === 'Submit Evidence' ? 'Submitting...' : 'Submit Additional Evidence'}
                         </button>
+                      </div>
+                    )}
+
+                    {dispute.status !== 2 && canResolveMutually && (
+                      <div className="status-info space-y-4 rounded-2xl border p-4">
+                        <div>
+                          <h4 className="text-xs font-bold text-primary">Resolve together</h4>
+                          <p className="mt-1 text-[10px] text-muted">
+                            Keep the evidence and discussion history, but finish the dispute when both parties agree on the final split. If no agreement is reached, the arbitrator can still decide.
+                          </p>
+                        </div>
+
+                        {mutualProposal ? (
+                          <div className="space-y-3">
+                            <div className="surface-card rounded-xl border p-3 text-xs">
+                              <p className="font-semibold text-primary">
+                                {mutualProposal.resolved ? 'Mutual settlement recorded' : 'Settlement proposal waiting for the other participant'}
+                              </p>
+                              <p className="mt-1 text-muted">
+                                {formatStroopsToXlm(mutualProposal.landlordAmount)} XLM to landlord · {formatStroopsToXlm(mutualProposal.tenantAmount)} XLM to tenant
+                              </p>
+                              <p className="mt-1 text-[10px] text-subtle">
+                                Proposed by {shortAddress(mutualProposal.proposedBy)} · {formatTimestamp(mutualProposal.proposedAt)}
+                              </p>
+                            </div>
+                            {!mutualProposal.resolved && proposalIsFromOtherParticipant && (
+                              <button
+                                type="button"
+                                disabled={actionLoading !== null}
+                                onClick={() => void runTrackedAction(
+                                  'Accept Mutual Settlement',
+                                  'propose_mutual_resolution',
+                                  () => ContractService.proposeMutualResolution(
+                                    dispute.disputeId,
+                                    {
+                                      landlordAmount: mutualProposal.landlordAmount,
+                                      tenantAmount: mutualProposal.tenantAmount,
+                                    },
+                                    address,
+                                  ),
+                                  {
+                                    contractId: DEFAULT_DISPUTE_ID,
+                                    method: 'propose_mutual_resolution',
+                                    args: [address, dispute.disputeId, mutualProposal.landlordAmount, mutualProposal.tenantAmount],
+                                  },
+                                )}
+                                className="btn-primary w-full rounded-xl px-4 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
+                              >
+                                {actionLoading === 'Accept Mutual Settlement' ? 'Submitting…' : 'Accept and Settle Dispute'}
+                              </button>
+                            )}
+                            {!mutualProposal.resolved && !proposalIsFromOtherParticipant && (
+                              <p className="text-[10px] text-muted">Waiting for the other participant to accept this split.</p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                              <div>
+                                <label className="text-[10px] text-muted">Landlord amount (XLM)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={mutualLandlordAmount}
+                                  onChange={(event) => {
+                                    const nextLandlord = parseFloat(event.target.value) || 0;
+                                    const total = Number(agreement.depositAmount) / 10_000_000;
+                                    setMutualLandlordAmount(event.target.value);
+                                    setMutualTenantAmount(Math.max(0, total - nextLandlord).toFixed(2));
+                                  }}
+                                  className="input-surface mt-1 w-full rounded-xl border p-2.5 text-xs focus:outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-muted">Tenant amount (XLM)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={mutualTenantAmount}
+                                  onChange={(event) => {
+                                    const nextTenant = parseFloat(event.target.value) || 0;
+                                    const total = Number(agreement.depositAmount) / 10_000_000;
+                                    setMutualTenantAmount(event.target.value);
+                                    setMutualLandlordAmount(Math.max(0, total - nextTenant).toFixed(2));
+                                  }}
+                                  className="input-surface mt-1 w-full rounded-xl border p-2.5 text-xs focus:outline-none"
+                                />
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={actionLoading !== null}
+                              onClick={() => {
+                                const landlordAmount = BigInt(Math.round((parseFloat(mutualLandlordAmount || '0') || 0) * 10_000_000));
+                                const tenantAmount = BigInt(Math.round((parseFloat(mutualTenantAmount || '0') || 0) * 10_000_000));
+                                if (landlordAmount + tenantAmount !== agreement.depositAmount) {
+                                  setActionError(`Settlement split must total exactly ${formatStroopsToXlm(agreement.depositAmount)} XLM.`);
+                                  return;
+                                }
+                                void runTrackedAction(
+                                  'Propose Mutual Settlement',
+                                  'propose_mutual_resolution',
+                                  () => ContractService.proposeMutualResolution(
+                                    dispute.disputeId,
+                                    { landlordAmount, tenantAmount },
+                                    address,
+                                  ),
+                                  {
+                                    contractId: DEFAULT_DISPUTE_ID,
+                                    method: 'propose_mutual_resolution',
+                                    args: [address, dispute.disputeId, landlordAmount, tenantAmount],
+                                  },
+                                );
+                              }}
+                              className="btn-primary w-full rounded-xl px-4 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
+                            >
+                              {actionLoading === 'Propose Mutual Settlement' ? 'Submitting…' : 'Propose Mutual Settlement'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 
