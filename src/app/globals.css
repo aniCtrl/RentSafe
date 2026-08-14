@@ -28,28 +28,28 @@
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --page: #111315;
-  --surface: #1b1e21;
-  --surface-muted: #24282c;
-  --surface-soft: #2b3035;
-  --text: #edf0f2;
+  --page: #11212D;
+  --surface: #172C3A;
+  --surface-muted: #1C3746;
+  --surface-soft: #244655;
+  --text: #ECF3F7;
   --text-strong: #ffffff;
-  --text-muted: #b6bec8;
-  --text-subtle: #8d98a3;
-  --border: #3a424a;
-  --border-strong: #56616c;
-  --primary: #f3f5f7;
-  --primary-contrast: #111315;
-  --success: #73d391;
-  --success-surface: #173b26;
-  --warning: #f4c76e;
-  --warning-surface: #443513;
-  --danger: #ff9f97;
-  --danger-surface: #4b2224;
-  --info: #8bc8f5;
-  --info-surface: #18364a;
-  --focus: #8db0ff;
-  --selection: #3a424a;
+  --text-muted: #B7C8D3;
+  --text-subtle: #8FA7B5;
+  --border: #304B5A;
+  --border-strong: #496676;
+  --primary: #F5F8FA;
+  --primary-contrast: #11212D;
+  --success: #75D39A;
+  --success-surface: #173B38;
+  --warning: #F2C873;
+  --warning-surface: #3D341D;
+  --danger: #FF9E98;
+  --danger-surface: #4A272C;
+  --info: #8BC8F5;
+  --info-surface: #183B53;
+  --focus: #9CC5FF;
+  --selection: #29485A;
 }
 
 @layer base {
@@ -105,20 +105,27 @@
 /* Existing screens use a small set of literal Tailwind colors. Remap those
    utilities through the semantic palette so older routes follow the theme too. */
 [data-theme='dark'] [class~="bg-[#ffffff]"] { background-color: var(--surface) !important; }
+[data-theme='dark'] [class*="bg-[#ffffff]"] { background-color: var(--surface) !important; }
 [data-theme='dark'] [class~="bg-black"], [data-theme='dark'] [class~="bg-[#000000]"] { background-color: var(--primary) !important; }
 [data-theme='dark'] [class~="text-white"], [data-theme='dark'] [class~="text-[#ffffff]"] { color: var(--primary-contrast) !important; }
 [data-theme='dark'] [class~="bg-white"] { background-color: var(--surface) !important; }
 [data-theme='dark'] [class~="bg-[#f9f9f9]"] { background-color: var(--page) !important; }
+[data-theme='dark'] [class*="bg-[#f9f9f9]"] { background-color: var(--page) !important; }
 [data-theme='dark'] [class~="bg-gray-50"], [data-theme='dark'] [class~="bg-slate-50"] { background-color: var(--surface-muted) !important; }
 [data-theme='dark'] [class~="bg-[#f3f3f3]"] { background-color: var(--surface-muted) !important; }
+[data-theme='dark'] [class*="bg-[#f3f3f3]"] { background-color: var(--surface-muted) !important; }
 [data-theme='dark'] [class~="bg-[#eeeeee]"] { background-color: var(--surface-soft) !important; }
+[data-theme='dark'] [class*="bg-[#eeeeee]"] { background-color: var(--surface-soft) !important; }
 [data-theme='dark'] [class~="bg-[#f8f9fa]"] { background-color: var(--surface-muted) !important; }
+[data-theme='dark'] [class*="bg-[#f8f9fa]"] { background-color: var(--surface-muted) !important; }
+[data-theme='dark'] [class*="bg-[#e2e2e2]"] { background-color: var(--surface-muted) !important; }
 [data-theme='dark'] [class~="text-[#000000]"], [data-theme='dark'] [class~="text-[#1a1c1c]"], [data-theme='dark'] [class~="text-[#151c27]"] { color: var(--text-strong) !important; }
 [data-theme='dark'] [class~="text-black"] { color: var(--text-strong) !important; }
 [data-theme='dark'] [class~="text-slate-700"], [data-theme='dark'] [class~="text-gray-700"] { color: var(--text) !important; }
 [data-theme='dark'] [class~="text-gray-600"], [data-theme='dark'] [class~="text-slate-600"] { color: var(--text-muted) !important; }
 [data-theme='dark'] [class~="text-[#585f6c]"], [data-theme='dark'] [class~="text-[#747878]"], [data-theme='dark'] [class~="text-[#5e6572]"] { color: var(--text-muted) !important; }
 [data-theme='dark'] [class~="border-[#e2e2e2]"], [data-theme='dark'] [class~="border-[#c4c7c7]"] { border-color: var(--border) !important; }
+[data-theme='dark'] [class*="border-[#e2e2e2]"], [data-theme='dark'] [class*="border-[#c4c7c7]"] { border-color: var(--border) !important; }
 [data-theme='dark'] [class~="border-gray-200"], [data-theme='dark'] [class~="border-slate-200"] { border-color: var(--border) !important; }
 [data-theme='dark'] [class~="border-amber-200"], [data-theme='dark'] [class~="border-emerald-200"], [data-theme='dark'] [class~="border-blue-200"] { border-color: var(--border-strong) !important; }
 [data-theme='dark'] input, [data-theme='dark'] textarea, [data-theme='dark'] select { background-color: var(--surface) !important; color: var(--text) !important; }
