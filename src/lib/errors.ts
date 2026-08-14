@@ -13,6 +13,10 @@ export function translateStellarError(error: unknown): string {
 
   const lowerMessage = rawMessage.toLowerCase();
 
+  if (lowerMessage.includes('trying to invoke non-existent contract function')) {
+    return 'This RentSafe contract is out of date for this action. Ask the platform admin to upgrade the dispute contract, then retry the transaction.';
+  }
+
   // 1. User rejection / Cancellation errors
   if (
     lowerMessage.includes('user closed the modal') || 

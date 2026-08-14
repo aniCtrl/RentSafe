@@ -1,13 +1,13 @@
 {
   "network": "testnet",
-  "timestamp": "2026-08-01T19:47:38Z",
+  "timestamp": "2026-08-19T21:37:00Z",
   "escrow": {
     "address": "CAUQOF5U6PUWNBZYWUAWBMYXQNPBXUQQWH3EHO6GQMUFKKNFQBWKXEUD",
     "wasm_hash": "8984492a8ba291fbb4ccced72dba508127e8e10136ef11755f1f79d38c4c216c"
   },
   "dispute": {
     "address": "CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W",
-    "wasm_hash": "1e276b85f2fcf604a10937e17e1ef6518c410b869c6e3cb5c29acfa01af5d725"
+    "wasm_hash": "c6c32aca57e5993f66ce1fc585a495457d3c273b54d58977d8e84d679051966a"
   },
   "roles": {
     "admin": "GCLSFD4ILBZCVMDY5R5ZGO6VEKQEHIKZATGOO4MX35DBPQ4QQ2SZR2NV",

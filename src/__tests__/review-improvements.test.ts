@@ -3,6 +3,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { getDisputeTimeline, getTimelineCurrentStep } from '@/lib/disputeTimeline';
 import { isEventRelevant } from '@/lib/notifications';
 import { DEFAULT_PLATFORM_ADMIN_ID } from '@/lib/stellar';
+import { translateStellarError } from '@/lib/errors';
 
 describe('review improvements', () => {
   beforeEach(() => {
@@ -82,5 +83,10 @@ describe('review improvements', () => {
     expect(isEventRelevant(event, 'g_tenant')).toBe(true);
     expect(isEventRelevant({ ...event, type: 'dispute_resolved', actorAddresses: [], agreementId: 1 }, DEFAULT_PLATFORM_ADMIN_ID)).toBe(true);
     expect(isEventRelevant(event, 'G_UNRELATED')).toBe(false);
+  });
+
+  it('explains when a deployed contract is missing the mutual settlement entrypoint', () => {
+    expect(translateStellarError(new Error('HostError: trying to invoke non-existent contract function, propose_mutual_resolution')))
+      .toContain('contract is out of date');
   });
 });

@@ -121,7 +121,7 @@ RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 | `Role(Address, Symbol)` | Persistent | `Symbol` | Role authorization mapping for platform admin and arbitrators |
 
 #### Public Functions
-`initialize` · `register_dispute` · `submit_evidence` · `resolve_dispute` · `get_dispute` · `get_dispute_by_agreement` · `get_dispute_ids` · `upgrade`
+`initialize` · `register_dispute` · `submit_evidence` · `propose_mutual_resolution` · `resolve_dispute` · `get_dispute` · `get_dispute_by_agreement` · `get_mutual_resolution` · `get_dispute_ids` · `upgrade`
 
 ---
 
@@ -392,13 +392,15 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 | WASM Upload | `04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127` | [View ↗](https://stellar.expert/explorer/testnet/tx/04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127) |
 | Contract Instantiate | `04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127` | [View ↗](https://stellar.expert/explorer/testnet/tx/04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127) |
 | `initialize()` | `04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127` | [View ↗](https://stellar.expert/explorer/testnet/tx/04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127) |
+| WASM Upload (mutual settlement) | `f3182eef472c33049fa7d925772da47f9976de5e2325d9ca9ff53bb321246e58` | [View ↗](https://stellar.expert/explorer/testnet/tx/f3182eef472c33049fa7d925772da47f9976de5e2325d9ca9ff53bb321246e58) |
+| WASM Upgrade | `a7a63795dccdea7d4336dae3def5d111d868fdb26eb92e2f5d5fd8658af01117` | [View ↗](https://stellar.expert/explorer/testnet/tx/a7a63795dccdea7d4336dae3def5d111d868fdb26eb92e2f5d5fd8658af01117) |
 
 ### WASM Hashes
 
 | Contract | WASM Hash |
 |---|---|
 | RentSafe Escrow | `8984492a8ba291fbb4ccced72dba508127e8e10136ef11755f1f79d38c4c216c` |
-| RentSafe Dispute | `1e276b85f2fcf604a10937e17e1ef6518c410b869c6e3cb5c29acfa01af5d725` |
+| RentSafe Dispute | `c6c32aca57e5993f66ce1fc585a495457d3c273b54d58977d8e84d679051966a` |
 
 ---
 
@@ -435,4 +437,3 @@ Open a PR — the `pr-checks` workflow must pass before review.
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
-
