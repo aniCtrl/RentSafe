@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useEventStream } from '@/hooks/useEventStream';
 import { useAppStore } from '@/store/useAppStore';
+import CopyHashButton from '@/components/CopyHashButton';
 
 export default function ActivityFeed({ agreementId, disputeId }: { agreementId?: string | number | null; disputeId?: string | number | null }) {
   const { events, loading, error } = useEventStream(agreementId, disputeId);
@@ -94,7 +95,13 @@ export default function ActivityFeed({ agreementId, disputeId }: { agreementId?:
                   </p>
                   <p className="text-[10px] text-[#585f6c] mt-1 flex items-center gap-1.5">
                     <span>Ledger: {event.ledger}</span>
-                    {event.txHash && <><span>•</span><a className="underline" href={`https://stellar.expert/explorer/testnet/tx/${event.txHash}`} target="_blank" rel="noreferrer">Transaction</a></>}
+                    {event.txHash && (
+                      <>
+                        <span>•</span>
+                        <a className="underline" href={`https://stellar.expert/explorer/testnet/tx/${event.txHash}`} target="_blank" rel="noreferrer">Transaction</a>
+                        <CopyHashButton hash={event.txHash} compact />
+                      </>
+                    )}
                     <span>•</span>
                     <span>
                       {new Date(event.timestamp).toLocaleTimeString([], {

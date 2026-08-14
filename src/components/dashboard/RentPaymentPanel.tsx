@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRentPayments } from '@/hooks/useRentPayments';
 import { formatStroopsToXlm, AgreementRecord } from '@/lib/rentsafe';
+import CopyHashButton from '@/components/CopyHashButton';
 
 interface RentPaymentPanelProps {
   agreement: AgreementRecord;
@@ -108,7 +109,10 @@ export default function RentPaymentPanel({ agreement, walletAddress, onPaymentCo
             <span className="material-symbols-outlined text-sm">check_circle</span>
             Payment Sent!
           </p>
-          <p className="font-mono break-all">Hash: {lastTxHash}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-mono break-all">Hash: {lastTxHash}</p>
+            <CopyHashButton hash={lastTxHash} />
+          </div>
           <a
             href={`https://stellar.expert/explorer/testnet/tx/${lastTxHash}`}
             target="_blank"
@@ -152,15 +156,18 @@ export default function RentPaymentPanel({ agreement, walletAddress, onPaymentCo
                     })}
                   </p>
                 </div>
-                <a
-                  href={`https://stellar.expert/explorer/testnet/tx/${payment.txHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 text-[#585f6c] hover:text-black"
-                  title="View on Stellar.expert"
-                >
-                  <span className="material-symbols-outlined text-base">open_in_new</span>
-                </a>
+                <div className="flex items-center gap-1">
+                  <CopyHashButton hash={payment.txHash} compact />
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/tx/${payment.txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-[#585f6c] hover:text-black"
+                    title="View on Stellar.expert"
+                  >
+                    <span className="material-symbols-outlined text-base">open_in_new</span>
+                  </a>
+                </div>
               </div>
             ))}
           </div>

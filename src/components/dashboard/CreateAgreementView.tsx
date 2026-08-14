@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useCreateAgreement } from '@/hooks/useCreateAgreement';
 import { formatAgreementId } from '@/lib/rentsafe';
+import CopyHashButton from '@/components/CopyHashButton';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 
@@ -88,7 +89,10 @@ export default function CreateAgreementView() {
                   : 'Resolving...'}
               </span>
             </p>
-            <p className="font-mono break-all text-[10px]">Hash: {txHash}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-mono break-all text-[10px]">Hash: {txHash}</p>
+              <CopyHashButton hash={txHash} />
+            </div>
             {createdAgreementId > 0 && (
               <a
                 href={`/inspect-escrow/${createdAgreementId}`}

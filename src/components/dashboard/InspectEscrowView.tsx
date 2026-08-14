@@ -15,6 +15,7 @@ import {
   shortAddress,
 } from '@/lib/rentsafe';
 import DisputeTimeline from '@/components/DisputeTimeline';
+import CopyHashButton from '@/components/CopyHashButton';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 const RentPaymentPanel = dynamic(() => import('@/components/dashboard/RentPaymentPanel'), { ssr: false });
@@ -94,7 +95,10 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
           <p className="font-bold flex items-center gap-1.5">
             <span className="material-symbols-outlined text-base">check_circle</span> Transaction Confirmed
           </p>
-          <p className="font-mono break-all">Hash: {actionTx}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-mono break-all">Hash: {actionTx}</p>
+            <CopyHashButton hash={actionTx} />
+          </div>
           <a
             href={`https://stellar.expert/explorer/testnet/tx/${actionTx}`}
             target="_blank"

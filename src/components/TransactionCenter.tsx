@@ -4,6 +4,7 @@ import React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore, TransactionRecord } from '@/store/useAppStore';
 import { parseAgreementSlug } from '@/lib/rentsafe';
+import CopyHashButton from '@/components/CopyHashButton';
 
 export default function TransactionCenter({ agreementId }: { agreementId?: string | number | null }) {
   const queryClient = useQueryClient();
@@ -111,16 +112,19 @@ export default function TransactionCenter({ agreementId }: { agreementId?: strin
               <p className="text-slate-700">{tx.description}</p>
 
               {tx.hash && (
-                <div className="flex justify-between items-center pt-2 border-t border-[#c4c7c7]/20 font-mono text-[10px] gap-2">
+                <div className="flex flex-wrap justify-between items-center pt-2 border-t border-[#c4c7c7]/20 font-mono text-[10px] gap-2">
                   <span className="truncate max-w-[200px]">Hash: {tx.hash}</span>
-                  <a
-                    href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline font-bold text-black flex items-center gap-0.5 hover:opacity-80"
-                  >
-                    Explorer <span className="material-symbols-outlined text-[10px]">open_in_new</span>
-                  </a>
+                  <div className="flex items-center gap-2">
+                    <CopyHashButton hash={tx.hash} />
+                    <a
+                      href={`https://stellar.expert/explorer/testnet/tx/${tx.hash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline font-bold text-black flex items-center gap-0.5 hover:opacity-80"
+                    >
+                      Explorer <span className="material-symbols-outlined text-[10px]">open_in_new</span>
+                    </a>
+                  </div>
                 </div>
               )}
 

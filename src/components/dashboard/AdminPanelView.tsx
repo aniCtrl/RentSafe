@@ -3,6 +3,7 @@
 import React from 'react';
 import { useAdminPanel } from '@/hooks/useAdminPanel';
 import { formatStroopsToXlm, formatTimestamp, shortAddress } from '@/lib/rentsafe';
+import CopyHashButton from '@/components/CopyHashButton';
 
 export default function AdminPanelView() {
   const {
@@ -41,10 +42,14 @@ export default function AdminPanelView() {
       {actionError && <div className="bg-[#ffdad6]/40 border border-[#ba1a1a]/20 text-[#ba1a1a] p-4 rounded-2xl text-xs">{actionError}</div>}
       {actionTx && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded-2xl text-xs">
-          Resolution submitted successfully.{' '}
-          <a href={`https://stellar.expert/explorer/testnet/tx/${actionTx}`} target="_blank" rel="noreferrer" className="underline font-semibold">
-            View transaction
-          </a>
+          <p>Resolution submitted successfully.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="font-mono break-all text-[10px]">Hash: {actionTx}</span>
+            <CopyHashButton hash={actionTx} />
+            <a href={`https://stellar.expert/explorer/testnet/tx/${actionTx}`} target="_blank" rel="noreferrer" className="underline font-semibold">
+              View transaction
+            </a>
+          </div>
         </div>
       )}
 
@@ -97,28 +102,35 @@ export default function AdminPanelView() {
             ) : (
               <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
                 {resolvedDisputes.map((dispute) => (
-                  <button
+                  <div
                     key={dispute.disputeId}
-                    onClick={() => setSelectedDisputeId(dispute.disputeId)}
-                    className={`w-full text-left border rounded-2xl p-4 transition-colors ${selectedDispute?.disputeId === dispute.disputeId ? 'border-black bg-[#f3f3f3]' : 'border-[#e2e2e2] hover:border-black'}`}
+                    className={`border rounded-2xl p-4 transition-colors ${selectedDispute?.disputeId === dispute.disputeId ? 'border-black bg-[#f3f3f3]' : 'border-[#e2e2e2]'}`}
                   >
-                    <p className="text-xs font-bold text-black">Dispute #{dispute.disputeId}</p>
-                    <p className="text-[10px] text-[#585f6c] mt-1">Agreement #{dispute.agreementId}</p>
-                    <p className="text-xs text-[#1a1c1c] mt-2">
-                      {formatStroopsToXlm(dispute.outcomeLandlordAmount)} XLM to landlord / {formatStroopsToXlm(dispute.outcomeTenantAmount)} XLM to tenant
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDisputeId(dispute.disputeId)}
+                      className="w-full text-left hover:opacity-80"
+                    >
+                      <p className="text-xs font-bold text-black">Dispute #{dispute.disputeId}</p>
+                      <p className="text-[10px] text-[#585f6c] mt-1">Agreement #{dispute.agreementId}</p>
+                      <p className="text-xs text-[#1a1c1c] mt-2">
+                        {formatStroopsToXlm(dispute.outcomeLandlordAmount)} XLM to landlord / {formatStroopsToXlm(dispute.outcomeTenantAmount)} XLM to tenant
+                      </p>
+                    </button>
                     {dispute.resolutionTxHash && (
-                      <a
-                        href={`https://stellar.expert/explorer/testnet/tx/${dispute.resolutionTxHash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex mt-2 text-[10px] underline font-semibold"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        Stellar.expert
-                      </a>
+                      <div className="mt-2 flex items-center gap-2">
+                        <CopyHashButton hash={dispute.resolutionTxHash} compact />
+                        <a
+                          href={`https://stellar.expert/explorer/testnet/tx/${dispute.resolutionTxHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[10px] underline font-semibold"
+                        >
+                          Stellar.expert
+                        </a>
+                      </div>
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
