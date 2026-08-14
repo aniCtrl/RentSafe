@@ -16,6 +16,7 @@ export function useWalletConnect() {
     walletId,
     setWalletId,
     resetSession,
+    createNotification,
   } = useAppStore();
 
   const [connecting, setConnecting] = useState(false);
@@ -50,14 +51,21 @@ export function useWalletConnect() {
       console.error('StellarWalletsKit connection failed:', err);
       if (err?.message !== 'The user closed the modal.') {
         const { translateStellarError } = await import('@/lib/errors');
-        alert(`Wallet Connection Error: ${translateStellarError(err)}`);
+        createNotification({
+          id: `system:wallet-connect:${Date.now()}`,
+          type: 'system',
+          severity: 'error',
+          title: 'Wallet connection failed',
+          message: translateStellarError(err),
+          href: '/settings',
+        });
       }
     } finally {
       connectionInProgress = false;
       setConnecting(false);
       if (onClose) onClose();
     }
-  }, [connecting, network, setAddress, setWalletId, fetchBalance]);
+  }, [connecting, network, setAddress, setWalletId, fetchBalance, createNotification]);
 
   const bootstrapSession = useCallback(async () => {
     if (!address || !walletId) return;

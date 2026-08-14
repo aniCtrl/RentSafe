@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { scValToNative, rpc, Contract } from '@stellar/stellar-sdk';
 import { DEFAULT_DISPUTE_ID, DEFAULT_ESCROW_ID, server } from '@/lib/stellar';
 import { formatStroopsToXlm, shortAddress } from '@/lib/rentsafe';
@@ -11,6 +11,12 @@ export interface DecodedEvent {
   type: string;
   message: string;
   timestamp: number;
+  contractId: string;
+  agreementId?: number;
+  disputeId?: number;
+  txHash?: string;
+  actor?: string;
+  actorAddresses: string[];
 }
 
 const asTuple = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
@@ -139,26 +145,88 @@ export function useEventStream(agreementId?: number | string | null, disputeId?:
             const action = String(topics[0] ?? '');
             const eventId = Number(topics[1] ?? 0);
 
-            if (!isAllMode && isEscrowEvent && eventId !== numericAgreementId) return null;
-            if (isDisputeEvent && (!hasDisputeFilter || eventId !== numericDisputeId)) return null;
-
             let value: unknown = null;
             try { value = scValToNative(event.value); } catch { /* keep null */ }
 
-            return {
+            const valueParts = asTuple(value);
+            const resolvedAgreementId = isEscrowEvent
+              ? eventId
+              : ['dispute_registered', 'dispute_resolved'].includes(action)
+                ? Number(valueParts[0] ?? 0)
+                : undefined;
+            const resolvedDisputeId = isDisputeEvent
+              ? eventId
+              : action === 'dispute_raised'
+                ? Number(valueParts[0] ?? 0)
+                : undefined;
+            const actorIndexes = isEscrowEvent
+              ? ({
+                  agreement_created: [0, 1],
+                  deposit_locked: [0],
+                  agreement_active: [0, 1],
+                  refund_requested: [0],
+                  deduction_requested: [0],
+                  deduction_accepted: [0],
+                  deduction_rejected: [0],
+                  dispute_raised: [1],
+                }[action] ?? [])
+              : ({ dispute_registered: [1], evidence_submitted: [0] }[action] ?? []);
+            const actorCandidates = actorIndexes
+              .map((index) => valueParts[index])
+              .filter((part) => typeof part === 'string' && part.length > 0)
+              .map(String);
+
+            if (!isAllMode && isEscrowEvent && eventId !== numericAgreementId) return null;
+            if (isDisputeEvent && hasDisputeFilter && eventId !== numericDisputeId) return null;
+
+            const decodedEvent: DecodedEvent = {
               id: event.id,
               ledger: event.ledger,
               type: action,
               message: decodeMessage(action, value),
               timestamp: Date.now() - (latestLedger.sequence - event.ledger) * 5000,
-            } satisfies DecodedEvent;
+              contractId: eventContractId,
+              agreementId: resolvedAgreementId && resolvedAgreementId > 0 ? resolvedAgreementId : undefined,
+              disputeId: resolvedDisputeId && resolvedDisputeId > 0 ? resolvedDisputeId : undefined,
+              txHash: event.txHash || undefined,
+              actor: actorCandidates[0],
+              actorAddresses: actorCandidates,
+            };
+            return decodedEvent;
           })
-          .filter((d): d is DecodedEvent => d !== null)
+          .filter((d): d is DecodedEvent => d !== null);
+
+        // Most escrow events identify only the actor who submitted the action.
+        // Build a small in-memory relationship map from the creation and
+        // registration events so counterparties receive the same lifecycle
+        // notification without changing the contract event format.
+        const participantsByAgreement = new Map<number, string[]>();
+        const agreementByDispute = new Map<number, number>();
+        decoded.forEach((event) => {
+          if (event.type === 'agreement_created' && event.agreementId && event.actorAddresses.length > 0) {
+            participantsByAgreement.set(event.agreementId, event.actorAddresses);
+          }
+          if (event.type === 'dispute_registered' && event.disputeId && event.agreementId) {
+            agreementByDispute.set(event.disputeId, event.agreementId);
+          }
+        });
+
+        const enriched = decoded
+          .map((event) => {
+            const agreementId = event.agreementId ?? (event.disputeId ? agreementByDispute.get(event.disputeId) : undefined);
+            const participants = agreementId ? participantsByAgreement.get(agreementId) ?? [] : [];
+            return {
+              ...event,
+              agreementId,
+              actorAddresses: Array.from(new Set([...event.actorAddresses, ...participants])),
+            };
+          })
+          .filter((event) => !isValidAgreementId || event.agreementId === numericAgreementId)
           .sort((a, b) => b.ledger - a.ledger);
 
-        console.debug(`[EventStream] Fetched ${response.events.length} events, filtered to ${decoded.length} for escrow=${DEFAULT_ESCROW_ID.slice(0, 8)}..., ledger range=${startLedger}-${latestLedger.sequence}`);
+        console.debug(`[EventStream] Fetched ${response.events.length} events, filtered to ${enriched.length} for escrow=${DEFAULT_ESCROW_ID.slice(0, 8)}..., ledger range=${startLedger}-${latestLedger.sequence}`);
 
-        setEvents(decoded);
+        setEvents(enriched);
       } catch (err) {
         console.error('Error fetching agreement event stream:', err);
         setError(String(err instanceof Error ? err.message : err));

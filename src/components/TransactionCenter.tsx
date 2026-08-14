@@ -7,7 +7,7 @@ import { parseAgreementSlug } from '@/lib/rentsafe';
 
 export default function TransactionCenter({ agreementId }: { agreementId?: string | number | null }) {
   const queryClient = useQueryClient();
-  const { transactions, address, updateTransactionStatus, clearTransactions } = useAppStore();
+  const { transactions, address, updateTransactionStatus, clearTransactions, createNotification } = useAppStore();
   const parsedId = agreementId != null ? parseAgreementSlug(String(agreementId)) : NaN;
   const scopeKey = !isNaN(parsedId) ? String(parsedId) : (agreementId != null ? String(agreementId) : null);
   const scopedTransactions = scopeKey
@@ -31,7 +31,15 @@ export default function TransactionCenter({ agreementId }: { agreementId?: strin
       console.error('Retry failed:', err);
       updateTransactionStatus(tx.id, 'failed');
       const { translateStellarError } = await import('@/lib/errors');
-      alert(`Retry transaction failed: ${translateStellarError(err)}`);
+      createNotification({
+        id: `system:retry-failed:${tx.id}`,
+        type: 'system',
+        severity: 'error',
+        title: 'Retry failed',
+        message: `Retry transaction failed: ${translateStellarError(err)}`,
+        agreementId: tx.agreementId,
+        href: '/transaction-center',
+      });
     }
   };
 
