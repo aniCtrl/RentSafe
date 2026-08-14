@@ -14,6 +14,7 @@ import {
   formatAgreementId,
   shortAddress,
 } from '@/lib/rentsafe';
+import DisputeTimeline from '@/components/DisputeTimeline';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 const RentPaymentPanel = dynamic(() => import('@/components/dashboard/RentPaymentPanel'), { ssr: false });
@@ -31,6 +32,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
     loadingAgreement,
     agreementError,
     loadingDispute,
+    disputeError,
     modalOpen,
     setModalOpen,
     actionTx,
@@ -168,6 +170,8 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                 <p className="text-[10px] text-[#747878] mt-1">Only authorized parties can submit lifecycle transactions.</p>
               </div>
             </div>
+
+            <DisputeTimeline agreement={agreement} dispute={dispute} role={role} disputeLoading={loadingDispute} disputeError={disputeError ? String(disputeError) : null} />
 
             <div className="bg-[#ffffff] rounded-[24px] p-6 shadow-sm border border-[#e2e2e2] space-y-6">
               <h3 className="text-sm font-bold text-[#000000] border-b border-[#e2e2e2] pb-3">Agreement Actions (Your Role: {role})</h3>

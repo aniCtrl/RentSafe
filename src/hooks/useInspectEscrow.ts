@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/useAppStore';
 import { useAgreementDetails, useAgreementDispute } from '@/hooks/useChainQueries';
-import { ContractService } from '@/services/contractService';
 import { readContractView, NATIVE_XLM_ID } from '@/lib/stellar';
 import { parseAgreementSlug, formatStroopsToXlm } from '@/lib/rentsafe';
+import type { TimelineRole } from '@/lib/disputeTimeline';
 
 export function useInspectEscrow(agreementId?: string) {
   const queryClient = useQueryClient();
@@ -42,6 +42,7 @@ export function useInspectEscrow(agreementId?: string) {
   const {
     data: dispute,
     isLoading: loadingDispute,
+    error: disputeError,
     refetch: refetchDispute,
   } = useAgreementDispute(isValidAgreementId ? numericAgreementId : null);
 
@@ -58,7 +59,7 @@ export function useInspectEscrow(agreementId?: string) {
     }
   }, [agreement]);
 
-  const role = useMemo(() => {
+  const role = useMemo<TimelineRole>(() => {
     if (!address || !agreement) return 'Guest';
     if (address.toLowerCase() === agreement.landlord.toLowerCase()) return 'Landlord';
     if (address.toLowerCase() === agreement.tenant.toLowerCase()) return 'Tenant';
@@ -138,6 +139,7 @@ export function useInspectEscrow(agreementId?: string) {
     loadingAgreement,
     agreementError,
     loadingDispute,
+    disputeError,
     modalOpen,
     setModalOpen,
     actionTx,
