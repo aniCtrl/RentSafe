@@ -24,8 +24,22 @@ describe('review improvements', () => {
     expect(getTimelineCurrentStep(8, 0)).toBe(5);
     expect(getTimelineCurrentStep(8, 1)).toBe(6);
     expect(getTimelineCurrentStep(8, 2)).toBe(7);
-    expect(getTimelineCurrentStep(9)).toBe(8);
-    expect(getTimelineCurrentStep(10)).toBe(9);
+    expect(getTimelineCurrentStep(9)).toBe(10);
+    expect(getTimelineCurrentStep(10)).toBe(10);
+  });
+
+  it('marks settled mutual disputes as fully complete', () => {
+    const timeline = getDisputeTimeline(
+      { status: 9, createdAt: 10, fundedAt: 20, deductionRequestedAt: 30, resolutionAt: 60 },
+      { status: 2, createdAt: 40, evidence: [], outcomeResolvedAt: 60, hasOutcome: true },
+      'Landlord',
+    );
+
+    expect(timeline.current.id).toBe('closed');
+    expect(timeline.steps[8].state).toBe('completed');
+    expect(timeline.steps[9].state).toBe('completed');
+    expect(timeline.steps[8].timestamp).toBe(60);
+    expect(timeline.steps[9].timestamp).toBe(60);
   });
 
   it('exposes the role-aware next action and evidence progress', () => {

@@ -47,8 +47,8 @@ export function getTimelineCurrentStep(agreementStatus: number, disputeStatus?: 
     if (disputeStatus === 1) return 6;
     return 5;
   }
-  if (agreementStatus === 9) return 8;
-  return 9;
+  if (agreementStatus >= 9) return DISPUTE_TIMELINE_STEPS.length;
+  return DISPUTE_TIMELINE_STEPS.length - 1;
 }
 
 function participantAction(role: TimelineRole, participant: 'Landlord' | 'Tenant' | 'Landlord or tenant', action: string) {
@@ -103,13 +103,14 @@ export function getDisputeTimeline(
     dispute?.status === 1 || dispute?.status === 2 ? dispute?.createdAt : undefined,
     agreement.resolutionAt || dispute?.outcomeResolvedAt,
     agreement.status >= 9 ? agreement.resolutionAt : undefined,
-    agreement.status >= 10 ? agreement.resolutionAt : undefined,
+    agreement.status >= 9 ? agreement.resolutionAt : undefined,
   ];
+  const currentStep = DISPUTE_TIMELINE_STEPS[Math.min(currentStepIndex, DISPUTE_TIMELINE_STEPS.length - 1)];
 
   return {
     currentStepIndex,
-    current: DISPUTE_TIMELINE_STEPS[currentStepIndex],
-    explanation: DISPUTE_TIMELINE_STEPS[currentStepIndex].description,
+    current: currentStep,
+    explanation: currentStep.description,
     nextActor: action.nextActor,
     nextAction: action.nextAction,
     steps: DISPUTE_TIMELINE_STEPS.map((step, index) => ({
