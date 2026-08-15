@@ -79,6 +79,30 @@
   }
 }
 
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) var(--page);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--page);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid var(--page);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-subtle);
+}
+
 .app-body { background: var(--page); color: var(--text); }
 .surface-card { background: var(--surface); border-color: var(--border); color: var(--text); }
 .surface-muted { background: var(--surface-muted); border-color: var(--border); color: var(--text); }
