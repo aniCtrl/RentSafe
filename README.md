@@ -418,7 +418,9 @@ We appreciate your feedback and suggestions! Please use the following links to i
 | Resource | Link |
 |---|---|
 | 🌐 Live demo (Stellar Testnet interface) | [https://rentsafe-nxx.vercel.app ↗](https://rentsafe-nxx.vercel.app/) |
-| 🎥 Demo video | [Demo Video ↗](https://youtu.be/1U_yuz7ShHk?si=IPk7D_g2LxCQKtod) |
+| 🎥 Demo video | [Demo Video ↗](https://youtu.be/8MDiW6bRTog) |
+| 📊 Project presentation | [RentSafe-2.pptx](docs/RentSafe-2.pptx) |
+| 📄 Project PDF | [RentSafe.pdf](docs/RentSafe.pdf) |
 | 🧪 Testnet faucet | [Stellar Laboratory Friendbot](https://laboratory.stellar.org/#account-creator?network=testnet) |
 | 📖 Stellar docs | [developers.stellar.org](https://developers.stellar.org) |
 | 🔍 Contract explorer | [StellarExpert Testnet](https://stellar.expert/explorer/testnet) |
