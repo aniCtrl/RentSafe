@@ -192,7 +192,11 @@ impl DisputeContract {
     }
 
     // Admin role configuration endpoints
-    pub fn add_arbitrator(env: Env, admin_caller: Address, arbitrator: Address) -> Result<(), Error> {
+    pub fn add_arbitrator(
+        env: Env,
+        admin_caller: Address,
+        arbitrator: Address,
+    ) -> Result<(), Error> {
         admin_caller.require_auth();
         if !Self::has_role(env.clone(), admin_caller, Symbol::new(&env, "admin")) {
             return Err(Error::NotAuthorized);
@@ -202,7 +206,11 @@ impl DisputeContract {
         Ok(())
     }
 
-    pub fn remove_arbitrator(env: Env, admin_caller: Address, arbitrator: Address) -> Result<(), Error> {
+    pub fn remove_arbitrator(
+        env: Env,
+        admin_caller: Address,
+        arbitrator: Address,
+    ) -> Result<(), Error> {
         admin_caller.require_auth();
         if !Self::has_role(env.clone(), admin_caller, Symbol::new(&env, "admin")) {
             return Err(Error::NotAuthorized);
@@ -1069,14 +1077,20 @@ mod test {
         dispute_client.propose_mutual_resolution(&landlord, &dispute_id, &250_i128, &750_i128);
         let pending = dispute_client.get_mutual_resolution(&dispute_id).unwrap();
         assert!(!pending.resolved);
-        assert_eq!(dispute_client.get_dispute(&dispute_id).status, DisputeStatus::EvidenceSubmitted);
+        assert_eq!(
+            dispute_client.get_dispute(&dispute_id).status,
+            DisputeStatus::EvidenceSubmitted
+        );
 
         dispute_client.propose_mutual_resolution(&tenant, &dispute_id, &250_i128, &750_i128);
         let resolved = dispute_client.get_mutual_resolution(&dispute_id).unwrap();
         let dispute = dispute_client.get_dispute(&dispute_id);
         assert!(resolved.resolved);
         assert_eq!(dispute.status, DisputeStatus::Resolved);
-        assert_eq!(escrow_client.get_last_callback(), (9_u64, 250_i128, 750_i128));
+        assert_eq!(
+            escrow_client.get_last_callback(),
+            (9_u64, 250_i128, 750_i128)
+        );
     }
 
     #[test]
@@ -1172,7 +1186,10 @@ mod test {
             dispute_client.get_dispute(&dispute_id).status,
             DisputeStatus::Resolved
         );
-        assert_eq!(escrow_client.get_last_callback(), (12_u64, 200_i128, 800_i128));
+        assert_eq!(
+            escrow_client.get_last_callback(),
+            (12_u64, 200_i128, 800_i128)
+        );
     }
 
     #[test]
@@ -1225,11 +1242,8 @@ mod test {
                 .id,
             counter_id
         );
-        let stale_result = dispute_client.try_accept_settlement_proposal(
-            &landlord,
-            &dispute_id,
-            &first_id,
-        );
+        let stale_result =
+            dispute_client.try_accept_settlement_proposal(&landlord, &dispute_id, &first_id);
         assert!(stale_result.is_err());
         assert_eq!(escrow_client.get_last_callback(), (0_u64, 0_i128, 0_i128));
 
@@ -1238,7 +1252,10 @@ mod test {
             dispute_client.get_settlement_proposal(&counter_id).status,
             SettlementProposalStatus::Accepted
         );
-        assert_eq!(escrow_client.get_last_callback(), (13_u64, 150_i128, 850_i128));
+        assert_eq!(
+            escrow_client.get_last_callback(),
+            (13_u64, 150_i128, 850_i128)
+        );
     }
 
     #[test]
@@ -1376,7 +1393,8 @@ mod test {
 
         // Try to resolve dispute with an unauthorized account
         let intruder = Address::generate(&env);
-        let result = dispute_client.try_resolve_dispute(&intruder, &dispute_id, &250_i128, &750_i128);
+        let result =
+            dispute_client.try_resolve_dispute(&intruder, &dispute_id, &250_i128, &750_i128);
         assert!(result.is_err());
 
         // Now resolve with authorized admin/arbitrator

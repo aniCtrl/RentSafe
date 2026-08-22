@@ -484,10 +484,7 @@ impl EscrowContract {
             .checked_add(tenant_amount)
             .ok_or(Error::ArithmeticError)?;
 
-        if landlord_amount < 0
-            || tenant_amount < 0
-            || total_amount != agreement.deposit_amount
-        {
+        if landlord_amount < 0 || tenant_amount < 0 || total_amount != agreement.deposit_amount {
             return Err(Error::InvalidResolution);
         }
 
@@ -617,10 +614,7 @@ impl EscrowContract {
             .checked_add(tenant_amount)
             .ok_or(Error::ArithmeticError)?;
 
-        if landlord_amount < 0
-            || tenant_amount < 0
-            || total_amount != agreement.deposit_amount
-        {
+        if landlord_amount < 0 || tenant_amount < 0 || total_amount != agreement.deposit_amount {
             return Err(Error::InvalidResolution);
         }
 
@@ -946,8 +940,14 @@ mod test {
     fn test_create_agreement_bug_reproduce() {
         let env = Env::default();
         let admin = Address::generate(&env);
-        let landlord = Address::from_string(&String::from_str(&env, "GDR3SRDLBF4AIB2MPJMKH7CGZS66ODLUE7CGBJB3A4J6JSZ5FMHNN7C5"));
-        let tenant = Address::from_string(&String::from_str(&env, "GBQI7VAINDSJQCVABBIRZOL3WQD3L6PEGE76BBVRV5STJ5RIMZZCASJL"));
+        let landlord = Address::from_string(&String::from_str(
+            &env,
+            "GDR3SRDLBF4AIB2MPJMKH7CGZS66ODLUE7CGBJB3A4J6JSZ5FMHNN7C5",
+        ));
+        let tenant = Address::from_string(&String::from_str(
+            &env,
+            "GBQI7VAINDSJQCVABBIRZOL3WQD3L6PEGE76BBVRV5STJ5RIMZZCASJL",
+        ));
         let token_address = Address::generate(&env);
         let dispute_address = Address::generate(&env);
 
@@ -1004,7 +1004,7 @@ mod test {
 
         let intruder = Address::generate(&env);
         let dummy_hash = BytesN::from_array(&env, &[0; 32]);
-        
+
         // Intruder attempts to upgrade contract - should fail
         let result = escrow_client.try_upgrade(&intruder, &dummy_hash);
         assert!(result.is_err());
