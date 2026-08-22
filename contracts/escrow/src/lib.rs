@@ -543,6 +543,13 @@ impl EscrowContract {
             .ok_or(Error::AgreementNotFound)
     }
 
+    /// Read-only deposit lookup used by the dispute contract to validate
+    /// settlement proposals before they are stored. It does not alter escrow
+    /// state or release any funds.
+    pub fn get_agreement_deposit(env: Env, agreement_id: u64) -> Result<i128, Error> {
+        Ok(Self::get_agreement(env, agreement_id)?.deposit_amount)
+    }
+
     pub fn get_agreement_ids(env: Env) -> Result<Vec<u64>, Error> {
         Self::require_initialized(&env)?;
         Ok(env

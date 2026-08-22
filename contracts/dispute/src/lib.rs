@@ -16,6 +16,11 @@ pub enum Error {
     DisputeAlreadyExists = 6,
     InvalidOutcome = 7,
     InvalidParticipant = 8,
+    ProposalNotFound = 9,
+    ProposalNotPending = 10,
+    ProposalNotCurrent = 11,
+    PendingProposalExists = 12,
+    InvalidProposalReason = 13,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -72,6 +77,31 @@ pub struct MutualResolution {
     pub resolved_at: u64,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub enum SettlementProposalStatus {
+    Pending = 0,
+    Accepted = 1,
+    Rejected = 2,
+    Superseded = 3,
+}
+
+/// A versioned participant proposal. Proposals are kept separately from the
+/// legacy MutualResolution value so existing deployed records remain readable.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct SettlementProposal {
+    pub id: u64,
+    pub dispute_id: u64,
+    pub proposer: Address,
+    pub landlord_amount: i128,
+    pub tenant_amount: i128,
+    pub reason: String,
+    pub proposed_at: u64,
+    pub responded_at: u64,
+    pub status: SettlementProposalStatus,
+}
+
 #[derive(Clone)]
 #[contracttype]
 pub enum DisputeDataKey {
@@ -81,11 +111,16 @@ pub enum DisputeDataKey {
     DisputeIds,
     DisputeByAgreement(u64),
     MutualResolution(u64),
+    NextSettlementProposalId,
+    SettlementProposal(u64),
+    SettlementProposalIds(u64),
+    CurrentSettlementProposal(u64),
     Role(Address, Symbol),
 }
 
 #[contractclient(name = "EscrowRegistryClient")]
 pub trait EscrowContractInterface {
+    fn get_agreement_deposit(env: Env, agreement_id: u64) -> i128;
     fn resolve_dispute_callback(
         env: Env,
         agreement_id: u64,
@@ -93,6 +128,8 @@ pub trait EscrowContractInterface {
         tenant_amount: i128,
     );
 }
+
+const MAX_PROPOSAL_REASON_LEN: u32 = 280;
 
 #[contract]
 pub struct DisputeContract;
@@ -372,6 +409,232 @@ impl DisputeContract {
         Ok(())
     }
 
+    /// Create the first proposal in a negotiated settlement. A proposal only
+    /// changes dispute-contract storage; escrow is called only after the other
+    /// participant accepts the current proposal.
+    pub fn create_settlement_proposal(
+        env: Env,
+        caller: Address,
+        dispute_id: u64,
+        landlord_amount: i128,
+        tenant_amount: i128,
+        reason: String,
+    ) -> Result<u64, Error> {
+        caller.require_auth();
+
+        let dispute = Self::get_active_dispute(env.clone(), dispute_id)?;
+        Self::require_participant(&dispute, &caller)?;
+        if Self::get_current_settlement_proposal(env.clone(), dispute_id).is_some() {
+            return Err(Error::PendingProposalExists);
+        }
+        Self::validate_settlement_split(&env, &dispute, landlord_amount, tenant_amount, &reason)?;
+
+        let proposal_id = Self::next_settlement_proposal_id(&env);
+        let next_id = proposal_id.checked_add(1).ok_or(Error::InvalidOutcome)?;
+        let proposal = SettlementProposal {
+            id: proposal_id,
+            dispute_id,
+            proposer: caller.clone(),
+            landlord_amount,
+            tenant_amount,
+            reason: reason.clone(),
+            proposed_at: env.ledger().timestamp(),
+            responded_at: 0,
+            status: SettlementProposalStatus::Pending,
+        };
+
+        Self::save_settlement_proposal(&env, &proposal);
+        Self::append_settlement_proposal_id(&env, dispute_id, proposal_id);
+        env.storage().persistent().set(
+            &DisputeDataKey::CurrentSettlementProposal(dispute_id),
+            &proposal_id,
+        );
+        env.storage()
+            .instance()
+            .set(&DisputeDataKey::NextSettlementProposalId, &next_id);
+
+        env.events().publish(
+            (
+                Symbol::new(&env, "settlement_proposal_created"),
+                dispute_id,
+                proposal_id,
+            ),
+            (caller, landlord_amount, tenant_amount, reason),
+        );
+
+        Ok(proposal_id)
+    }
+
+    /// Accept the current proposal from the other participant and settle the
+    /// dispute. This is the only negotiation action that calls escrow.
+    pub fn accept_settlement_proposal(
+        env: Env,
+        caller: Address,
+        dispute_id: u64,
+        proposal_id: u64,
+    ) -> Result<(), Error> {
+        caller.require_auth();
+
+        let dispute = Self::get_active_dispute(env.clone(), dispute_id)?;
+        let mut proposal =
+            Self::get_current_proposal_for_response(&env, &dispute, &caller, proposal_id)?;
+        Self::validate_settlement_split(
+            &env,
+            &dispute,
+            proposal.landlord_amount,
+            proposal.tenant_amount,
+            &proposal.reason,
+        )?;
+
+        let resolved_at = env.ledger().timestamp();
+        proposal.status = SettlementProposalStatus::Accepted;
+        proposal.responded_at = resolved_at;
+        Self::save_settlement_proposal(&env, &proposal);
+        env.storage()
+            .persistent()
+            .remove(&DisputeDataKey::CurrentSettlementProposal(dispute_id));
+
+        let mut resolved_dispute = dispute;
+        resolved_dispute.status = DisputeStatus::Resolved;
+        resolved_dispute.has_outcome = true;
+        resolved_dispute.outcome_landlord_amount = proposal.landlord_amount;
+        resolved_dispute.outcome_tenant_amount = proposal.tenant_amount;
+        resolved_dispute.outcome_resolved_at = resolved_at;
+        Self::save_dispute(&env, &resolved_dispute);
+
+        // Keep the legacy read endpoint useful for clients during the staged
+        // frontend migration, without using it as the source of proposal history.
+        let legacy_resolution = MutualResolution {
+            landlord_amount: proposal.landlord_amount,
+            tenant_amount: proposal.tenant_amount,
+            proposed_by: proposal.proposer.clone(),
+            proposed_at: proposal.proposed_at,
+            resolved: true,
+            resolved_at,
+        };
+        env.storage().persistent().set(
+            &DisputeDataKey::MutualResolution(dispute_id),
+            &legacy_resolution,
+        );
+
+        let config = Self::get_config(env.clone())?;
+        let escrow_client = EscrowRegistryClient::new(&env, &config.escrow_contract);
+        escrow_client.resolve_dispute_callback(
+            &resolved_dispute.agreement_id,
+            &proposal.landlord_amount,
+            &proposal.tenant_amount,
+        );
+
+        env.events().publish(
+            (
+                Symbol::new(&env, "settlement_proposal_accepted"),
+                dispute_id,
+                proposal_id,
+            ),
+            (caller, proposal.landlord_amount, proposal.tenant_amount),
+        );
+        env.events().publish(
+            (Symbol::new(&env, "dispute_resolved"), dispute_id),
+            (
+                resolved_dispute.agreement_id,
+                proposal.landlord_amount,
+                proposal.tenant_amount,
+            ),
+        );
+
+        Ok(())
+    }
+
+    /// Reject the current proposal without touching escrow. The rejected
+    /// proposal can be followed by a fresh proposal from either participant.
+    pub fn reject_settlement_proposal(
+        env: Env,
+        caller: Address,
+        dispute_id: u64,
+        proposal_id: u64,
+    ) -> Result<(), Error> {
+        caller.require_auth();
+
+        let dispute = Self::get_active_dispute(env.clone(), dispute_id)?;
+        let mut proposal =
+            Self::get_current_proposal_for_response(&env, &dispute, &caller, proposal_id)?;
+        proposal.status = SettlementProposalStatus::Rejected;
+        proposal.responded_at = env.ledger().timestamp();
+        Self::save_settlement_proposal(&env, &proposal);
+        env.storage()
+            .persistent()
+            .remove(&DisputeDataKey::CurrentSettlementProposal(dispute_id));
+
+        env.events().publish(
+            (
+                Symbol::new(&env, "settlement_proposal_rejected"),
+                dispute_id,
+                proposal_id,
+            ),
+            (caller, proposal.proposer),
+        );
+
+        Ok(())
+    }
+
+    /// Replace the current proposal with a counter-offer atomically. The
+    /// previous proposal becomes immutable history and cannot be accepted.
+    pub fn counter_settlement_proposal(
+        env: Env,
+        caller: Address,
+        dispute_id: u64,
+        proposal_id: u64,
+        landlord_amount: i128,
+        tenant_amount: i128,
+        reason: String,
+    ) -> Result<u64, Error> {
+        caller.require_auth();
+
+        let dispute = Self::get_active_dispute(env.clone(), dispute_id)?;
+        let mut previous =
+            Self::get_current_proposal_for_response(&env, &dispute, &caller, proposal_id)?;
+        Self::validate_settlement_split(&env, &dispute, landlord_amount, tenant_amount, &reason)?;
+
+        let now = env.ledger().timestamp();
+        previous.status = SettlementProposalStatus::Superseded;
+        previous.responded_at = now;
+        Self::save_settlement_proposal(&env, &previous);
+
+        let counter_id = Self::next_settlement_proposal_id(&env);
+        let next_id = counter_id.checked_add(1).ok_or(Error::InvalidOutcome)?;
+        let counter = SettlementProposal {
+            id: counter_id,
+            dispute_id,
+            proposer: caller.clone(),
+            landlord_amount,
+            tenant_amount,
+            reason: reason.clone(),
+            proposed_at: now,
+            responded_at: 0,
+            status: SettlementProposalStatus::Pending,
+        };
+        Self::save_settlement_proposal(&env, &counter);
+        Self::append_settlement_proposal_id(&env, dispute_id, counter_id);
+        env.storage().persistent().set(
+            &DisputeDataKey::CurrentSettlementProposal(dispute_id),
+            &counter_id,
+        );
+        env.storage()
+            .instance()
+            .set(&DisputeDataKey::NextSettlementProposalId, &next_id);
+
+        env.events().publish(
+            (
+                Symbol::new(&env, "settlement_proposal_countered"),
+                dispute_id,
+                proposal_id,
+            ),
+            (caller, counter_id, landlord_amount, tenant_amount, reason),
+        );
+
+        Ok(counter_id)
+    }
+
     pub fn resolve_dispute(
         env: Env,
         caller: Address,
@@ -464,6 +727,48 @@ impl DisputeContract {
             .get(&DisputeDataKey::MutualResolution(dispute_id))
     }
 
+    pub fn get_settlement_proposal(
+        env: Env,
+        proposal_id: u64,
+    ) -> Result<SettlementProposal, Error> {
+        env.storage()
+            .persistent()
+            .get(&DisputeDataKey::SettlementProposal(proposal_id))
+            .ok_or(Error::ProposalNotFound)
+    }
+
+    pub fn get_current_settlement_proposal(
+        env: Env,
+        dispute_id: u64,
+    ) -> Option<SettlementProposal> {
+        let proposal_id = env
+            .storage()
+            .persistent()
+            .get::<_, u64>(&DisputeDataKey::CurrentSettlementProposal(dispute_id))?;
+        env.storage()
+            .persistent()
+            .get(&DisputeDataKey::SettlementProposal(proposal_id))
+    }
+
+    pub fn get_settlement_proposals(env: Env, dispute_id: u64) -> Vec<SettlementProposal> {
+        let ids: Vec<u64> = env
+            .storage()
+            .persistent()
+            .get(&DisputeDataKey::SettlementProposalIds(dispute_id))
+            .unwrap_or(Vec::new(&env));
+        let mut proposals = Vec::new(&env);
+        for proposal_id in ids.iter() {
+            if let Some(proposal) = env
+                .storage()
+                .persistent()
+                .get(&DisputeDataKey::SettlementProposal(proposal_id))
+            {
+                proposals.push_back(proposal);
+            }
+        }
+        proposals
+    }
+
     fn require_initialized(env: &Env) -> Result<(), Error> {
         if env.storage().instance().has(&DisputeDataKey::Config) {
             Ok(())
@@ -496,6 +801,104 @@ impl DisputeContract {
             .persistent()
             .set(&DisputeDataKey::DisputeIds, &ids);
     }
+
+    fn get_active_dispute(env: Env, dispute_id: u64) -> Result<DisputeRecord, Error> {
+        let dispute = Self::get_dispute(env, dispute_id)?;
+        if dispute.status != DisputeStatus::Open
+            && dispute.status != DisputeStatus::EvidenceSubmitted
+        {
+            return Err(Error::InvalidState);
+        }
+        Ok(dispute)
+    }
+
+    fn require_participant(dispute: &DisputeRecord, caller: &Address) -> Result<(), Error> {
+        if caller != &dispute.landlord && caller != &dispute.tenant {
+            return Err(Error::InvalidParticipant);
+        }
+        Ok(())
+    }
+
+    fn validate_settlement_split(
+        env: &Env,
+        dispute: &DisputeRecord,
+        landlord_amount: i128,
+        tenant_amount: i128,
+        reason: &String,
+    ) -> Result<(), Error> {
+        if landlord_amount < 0 || tenant_amount < 0 {
+            return Err(Error::InvalidOutcome);
+        }
+        if reason.len() > MAX_PROPOSAL_REASON_LEN {
+            return Err(Error::InvalidProposalReason);
+        }
+
+        let total_amount = landlord_amount
+            .checked_add(tenant_amount)
+            .ok_or(Error::InvalidOutcome)?;
+        let config = Self::get_config(env.clone())?;
+        let escrow_client = EscrowRegistryClient::new(env, &config.escrow_contract);
+        let deposit_amount = escrow_client.get_agreement_deposit(&dispute.agreement_id);
+        if total_amount != deposit_amount {
+            return Err(Error::InvalidOutcome);
+        }
+        Ok(())
+    }
+
+    fn get_current_proposal_for_response(
+        env: &Env,
+        dispute: &DisputeRecord,
+        caller: &Address,
+        proposal_id: u64,
+    ) -> Result<SettlementProposal, Error> {
+        Self::require_participant(dispute, caller)?;
+        let current_id = env
+            .storage()
+            .persistent()
+            .get::<_, u64>(&DisputeDataKey::CurrentSettlementProposal(dispute.id))
+            .ok_or(Error::ProposalNotCurrent)?;
+        if current_id != proposal_id {
+            return Err(Error::ProposalNotCurrent);
+        }
+
+        let proposal = env
+            .storage()
+            .persistent()
+            .get::<_, SettlementProposal>(&DisputeDataKey::SettlementProposal(proposal_id))
+            .ok_or(Error::ProposalNotFound)?;
+        if proposal.status != SettlementProposalStatus::Pending {
+            return Err(Error::ProposalNotPending);
+        }
+        if proposal.proposer == *caller {
+            return Err(Error::InvalidParticipant);
+        }
+        Ok(proposal)
+    }
+
+    fn next_settlement_proposal_id(env: &Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DisputeDataKey::NextSettlementProposalId)
+            .unwrap_or(1_u64)
+    }
+
+    fn save_settlement_proposal(env: &Env, proposal: &SettlementProposal) {
+        env.storage()
+            .persistent()
+            .set(&DisputeDataKey::SettlementProposal(proposal.id), proposal);
+    }
+
+    fn append_settlement_proposal_id(env: &Env, dispute_id: u64, proposal_id: u64) {
+        let mut ids: Vec<u64> = env
+            .storage()
+            .persistent()
+            .get(&DisputeDataKey::SettlementProposalIds(dispute_id))
+            .unwrap_or(Vec::new(env));
+        ids.push_back(proposal_id);
+        env.storage()
+            .persistent()
+            .set(&DisputeDataKey::SettlementProposalIds(dispute_id), &ids);
+    }
 }
 
 #[cfg(test)]
@@ -522,6 +925,10 @@ mod test {
         pub fn initialize(env: Env, landlord: Address, tenant: Address) {
             env.storage().instance().set(&StubKey::Landlord, &landlord);
             env.storage().instance().set(&StubKey::Tenant, &tenant);
+        }
+
+        pub fn get_agreement_deposit(_env: Env, _agreement_id: u64) -> i128 {
+            1_000_i128
         }
 
         pub fn get_agreement_parties(env: Env, _agreement_id: u64) -> (Address, Address) {
@@ -677,7 +1084,7 @@ mod test {
         let env = Env::default();
         let admin = Address::generate(&env);
         let escrow_address = Address::generate(&env);
-        
+
         let dispute_address = env.register(DisputeContract, ());
         let dispute_client = DisputeContractClient::new(&env, &dispute_address);
 
