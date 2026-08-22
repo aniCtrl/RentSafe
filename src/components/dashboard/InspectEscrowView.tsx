@@ -55,16 +55,21 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
     setMutualLandlordAmount,
     mutualTenantAmount,
     setMutualTenantAmount,
+    settlementReason,
+    setSettlementReason,
     numericAgreementId,
     refreshAll,
     runTrackedAction,
   } = useInspectEscrow(agreementId);
 
   const mutualProposal = dispute?.mutualResolution ?? null;
+  const currentProposal = dispute?.currentSettlementProposal ?? null;
+  const settlementHistory = dispute?.settlementProposals ?? [];
   const canResolveMutually = role === 'Landlord' || role === 'Tenant';
   const proposalIsFromOtherParticipant = Boolean(
-    mutualProposal && address && mutualProposal.proposedBy.toLowerCase() !== address.toLowerCase(),
+    currentProposal && address && currentProposal.proposer.toLowerCase() !== address.toLowerCase(),
   );
+  const legacyPendingProposal = !currentProposal && settlementHistory.length === 0 && mutualProposal;
 
   if (!agreementId) {
     return (
@@ -503,64 +508,104 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                       </div>
                     )}
 
-                    {dispute.status !== 2 && canResolveMutually && (
-                      <div className="status-info space-y-4 rounded-2xl border p-4">
+                    {canResolveMutually && (
+                      <div className="status-info space-y-5 rounded-2xl border p-4">
                         <div>
-                          <h4 className="text-xs font-bold text-primary">Resolve together</h4>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h4 className="text-xs font-bold text-primary">Negotiated mutual settlement</h4>
+                            <span className="rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-wider">Funds locked</span>
+                          </div>
                           <p className="mt-1 text-[10px] text-muted">
-                            Keep the evidence and discussion history, but finish the dispute when both parties agree on the final split. If no agreement is reached, the arbitrator can still decide.
+                            Make, reject, or counter a structured split without moving money. The escrow is paid only after the other participant accepts one pending proposal.
                           </p>
                         </div>
 
-                        {mutualProposal ? (
-                          <div className="space-y-3">
-                            <div className="surface-card rounded-xl border p-3 text-xs">
-                              <p className="font-semibold text-primary">
-                                {mutualProposal.resolved ? 'Mutual settlement recorded' : 'Settlement proposal waiting for the other participant'}
-                              </p>
-                              <p className="mt-1 text-muted">
-                                {formatStroopsToXlm(mutualProposal.landlordAmount)} XLM to landlord · {formatStroopsToXlm(mutualProposal.tenantAmount)} XLM to tenant
-                              </p>
-                              <p className="mt-1 text-[10px] text-subtle">
-                                Proposed by {shortAddress(mutualProposal.proposedBy)} · {formatTimestamp(mutualProposal.proposedAt)}
-                              </p>
+                        {currentProposal && dispute.status !== 2 && (
+                          <div className="surface-card space-y-4 rounded-xl border p-4 text-xs">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <p className="font-semibold text-primary">Current proposal · Pending</p>
+                                <p className="mt-1 text-[10px] text-muted">
+                                  Proposed by {shortAddress(currentProposal.proposer)} · {formatTimestamp(currentProposal.proposedAt)}
+                                </p>
+                              </div>
+                              <span className="status-warning rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-wider">Awaiting response</span>
                             </div>
-                            {!mutualProposal.resolved && proposalIsFromOtherParticipant && (
-                              <button
-                                type="button"
-                                disabled={actionLoading !== null}
-                                onClick={() => void runTrackedAction(
-                                  'Accept Mutual Settlement',
-                                  'propose_mutual_resolution',
-                                  () => ContractService.proposeMutualResolution(
-                                    dispute.disputeId,
-                                    {
-                                      landlordAmount: mutualProposal.landlordAmount,
-                                      tenantAmount: mutualProposal.tenantAmount,
-                                    },
-                                    address,
-                                  ),
-                                  {
-                                    contractId: DEFAULT_DISPUTE_ID,
-                                    method: 'propose_mutual_resolution',
-                                    args: [address, dispute.disputeId, mutualProposal.landlordAmount, mutualProposal.tenantAmount],
-                                  },
-                                )}
-                                className="btn-primary w-full rounded-xl px-4 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
-                              >
-                                {actionLoading === 'Accept Mutual Settlement' ? 'Submitting…' : 'Accept and Settle Dispute'}
-                              </button>
+
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              <div className="surface-muted rounded-xl border p-3">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Landlord receives</p>
+                                <p className="mt-1 text-base font-bold text-primary">{formatStroopsToXlm(currentProposal.landlordAmount)} XLM</p>
+                              </div>
+                              <div className="surface-muted rounded-xl border p-3">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Tenant receives</p>
+                                <p className="mt-1 text-base font-bold text-primary">{formatStroopsToXlm(currentProposal.tenantAmount)} XLM</p>
+                              </div>
+                            </div>
+
+                            {currentProposal.reason && (
+                              <p className="text-[10px] text-muted"><span className="font-semibold text-primary">Reason:</span> {currentProposal.reason}</p>
                             )}
-                            {!mutualProposal.resolved && !proposalIsFromOtherParticipant && (
-                              <p className="text-[10px] text-muted">Waiting for the other participant to accept this split.</p>
+
+                            {proposalIsFromOtherParticipant ? (
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                <button
+                                  type="button"
+                                  disabled={actionLoading !== null}
+                                  onClick={() => void runTrackedAction(
+                                    'Accept Settlement Proposal',
+                                    'accept_settlement_proposal',
+                                    () => ContractService.acceptSettlementProposal(dispute.disputeId, currentProposal.proposalId, address),
+                                    { contractId: DEFAULT_DISPUTE_ID, method: 'accept_settlement_proposal', args: [address, dispute.disputeId, currentProposal.proposalId] },
+                                  )}
+                                  className="btn-primary rounded-xl px-3 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
+                                >
+                                  {actionLoading === 'Accept Settlement Proposal' ? 'Submitting…' : 'Accept & settle'}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={actionLoading !== null}
+                                  onClick={() => void runTrackedAction(
+                                    'Reject Settlement Proposal',
+                                    'reject_settlement_proposal',
+                                    () => ContractService.rejectSettlementProposal(dispute.disputeId, currentProposal.proposalId, address),
+                                    { contractId: DEFAULT_DISPUTE_ID, method: 'reject_settlement_proposal', args: [address, dispute.disputeId, currentProposal.proposalId] },
+                                  )}
+                                  className="btn-danger rounded-xl px-3 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
+                                >
+                                  {actionLoading === 'Reject Settlement Proposal' ? 'Submitting…' : 'Reject'}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={actionLoading !== null}
+                                  onClick={() => {
+                                    setMutualLandlordAmount(formatStroopsToXlm(currentProposal.landlordAmount));
+                                    setMutualTenantAmount(formatStroopsToXlm(currentProposal.tenantAmount));
+                                    setSettlementReason('');
+                                    setActionError(null);
+                                  }}
+                                  className="btn-secondary rounded-xl border px-3 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
+                                >
+                                  Counter-offer
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-muted">Your proposal is pending. The other participant can accept, reject, or counter it.</p>
                             )}
                           </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        )}
+
+                        {dispute.status !== 2 && ((!currentProposal && !legacyPendingProposal) || proposalIsFromOtherParticipant) && (
+                          <div className="surface-muted space-y-3 rounded-xl border p-4">
+                            <div>
+                              <h5 className="text-xs font-bold text-primary">{currentProposal ? 'Make a counter-offer' : 'Make a settlement proposal'}</h5>
+                              <p className="mt-1 text-[10px] text-muted">The two payouts must equal the locked deposit of {formatStroopsToXlm(agreement.depositAmount)} XLM.</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                               <div>
-                                <label className="text-[10px] text-muted">Landlord amount (XLM)</label>
+                                <label htmlFor="settlement-landlord-amount" className="text-[10px] text-muted">Landlord receives (XLM)</label>
                                 <input
+                                  id="settlement-landlord-amount"
                                   type="number"
                                   min="0"
                                   step="0.01"
@@ -575,8 +620,9 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                                 />
                               </div>
                               <div>
-                                <label className="text-[10px] text-muted">Tenant amount (XLM)</label>
+                                <label htmlFor="settlement-tenant-amount" className="text-[10px] text-muted">Tenant receives (XLM)</label>
                                 <input
+                                  id="settlement-tenant-amount"
                                   type="number"
                                   min="0"
                                   step="0.01"
@@ -591,6 +637,17 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                                 />
                               </div>
                             </div>
+                            <div>
+                              <label htmlFor="settlement-reason" className="text-[10px] text-muted">Optional reason (max 280 characters)</label>
+                              <textarea
+                                id="settlement-reason"
+                                maxLength={280}
+                                value={settlementReason}
+                                onChange={(event) => setSettlementReason(event.target.value)}
+                                className="input-surface mt-1 min-h-20 w-full rounded-xl border p-2.5 text-xs focus:outline-none"
+                                placeholder="Briefly explain this offer"
+                              />
+                            </div>
                             <button
                               type="button"
                               disabled={actionLoading !== null}
@@ -601,26 +658,84 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                                   setActionError(`Settlement split must total exactly ${formatStroopsToXlm(agreement.depositAmount)} XLM.`);
                                   return;
                                 }
-                                void runTrackedAction(
-                                  'Propose Mutual Settlement',
-                                  'propose_mutual_resolution',
-                                  () => ContractService.proposeMutualResolution(
-                                    dispute.disputeId,
-                                    { landlordAmount, tenantAmount },
-                                    address,
-                                  ),
-                                  {
-                                    contractId: DEFAULT_DISPUTE_ID,
-                                    method: 'propose_mutual_resolution',
-                                    args: [address, dispute.disputeId, landlordAmount, tenantAmount],
-                                  },
-                                );
+                                if (currentProposal) {
+                                  void runTrackedAction(
+                                    'Submit Counter-offer',
+                                    'counter_settlement_proposal',
+                                    async () => (await ContractService.counterSettlementProposal(
+                                      dispute.disputeId,
+                                      currentProposal.proposalId,
+                                      { landlordAmount, tenantAmount, reason: settlementReason },
+                                      address,
+                                    )).txHash,
+                                    { contractId: DEFAULT_DISPUTE_ID, method: 'counter_settlement_proposal', args: [address, dispute.disputeId, currentProposal.proposalId, landlordAmount, tenantAmount, settlementReason] },
+                                  );
+                                } else {
+                                  void runTrackedAction(
+                                    'Create Settlement Proposal',
+                                    'create_settlement_proposal',
+                                    async () => (await ContractService.createSettlementProposal(
+                                      dispute.disputeId,
+                                      { landlordAmount, tenantAmount, reason: settlementReason },
+                                      address,
+                                    )).txHash,
+                                    { contractId: DEFAULT_DISPUTE_ID, method: 'create_settlement_proposal', args: [address, dispute.disputeId, landlordAmount, tenantAmount, settlementReason] },
+                                  );
+                                }
                               }}
                               className="btn-primary w-full rounded-xl px-4 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
                             >
-                              {actionLoading === 'Propose Mutual Settlement' ? 'Submitting…' : 'Propose Mutual Settlement'}
+                              {actionLoading === 'Submit Counter-offer' || actionLoading === 'Create Settlement Proposal' ? 'Submitting…' : currentProposal ? 'Submit Counter-offer' : 'Create Settlement Proposal'}
                             </button>
                           </div>
+                        )}
+
+                        {legacyPendingProposal && dispute.status !== 2 && (
+                          <div className="surface-card space-y-3 rounded-xl border p-4 text-xs">
+                            <p className="font-semibold text-primary">Legacy mutual settlement proposal</p>
+                            <p className="text-muted">{formatStroopsToXlm(legacyPendingProposal.landlordAmount)} XLM to landlord · {formatStroopsToXlm(legacyPendingProposal.tenantAmount)} XLM to tenant</p>
+                            <p className="text-[10px] text-subtle">Proposed by {shortAddress(legacyPendingProposal.proposedBy)} · {formatTimestamp(legacyPendingProposal.proposedAt)}</p>
+                            {address && legacyPendingProposal.proposedBy.toLowerCase() !== address.toLowerCase() && (
+                              <button
+                                type="button"
+                                disabled={actionLoading !== null}
+                                onClick={() => void runTrackedAction(
+                                  'Accept Legacy Settlement',
+                                  'propose_mutual_resolution',
+                                  () => ContractService.proposeMutualResolution(dispute.disputeId, { landlordAmount: legacyPendingProposal.landlordAmount, tenantAmount: legacyPendingProposal.tenantAmount }, address),
+                                  { contractId: DEFAULT_DISPUTE_ID, method: 'propose_mutual_resolution', args: [address, dispute.disputeId, legacyPendingProposal.landlordAmount, legacyPendingProposal.tenantAmount] },
+                                )}
+                                className="btn-primary w-full rounded-xl px-4 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
+                              >
+                                {actionLoading === 'Accept Legacy Settlement' ? 'Submitting…' : 'Accept and settle legacy proposal'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {settlementHistory.length > 0 && (
+                          <div className="space-y-3 border-t border-default pt-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <h5 className="text-xs font-bold text-primary">Negotiation history</h5>
+                              <span className="text-[10px] text-muted">{settlementHistory.length} proposal{settlementHistory.length === 1 ? '' : 's'}</span>
+                            </div>
+                            <div className="space-y-2">
+                              {settlementHistory.map((proposal) => (
+                                <div key={proposal.proposalId} className="surface-card rounded-xl border p-3 text-xs">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="font-semibold text-primary">{shortAddress(proposal.proposer)} · {proposal.statusLabel}</p>
+                                    <span className="text-[10px] text-subtle">{formatTimestamp(proposal.proposedAt)}</span>
+                                  </div>
+                                  <p className="mt-1 text-muted">{formatStroopsToXlm(proposal.landlordAmount)} XLM landlord · {formatStroopsToXlm(proposal.tenantAmount)} XLM tenant</p>
+                                  {proposal.reason && <p className="mt-1 text-[10px] text-subtle">{proposal.reason}</p>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {dispute.status === 2 && settlementHistory.length === 0 && !legacyPendingProposal && (
+                          <p className="text-[10px] text-muted">This dispute is resolved. No negotiated proposal history was returned by the deployed contract.</p>
                         )}
                       </div>
                     )}
