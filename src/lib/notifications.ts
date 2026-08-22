@@ -20,6 +20,10 @@ export const EVENT_NOTIFICATION_COPY: Record<string, EventNotificationCopy> = {
   dispute_registered: { title: 'Dispute registered', severity: 'warning', type: 'dispute' },
   evidence_submitted: { title: 'Evidence submitted', severity: 'info', type: 'dispute' },
   mutual_resolution_proposed: { title: 'Mutual settlement proposed', severity: 'info', type: 'dispute' },
+  settlement_proposal_created: { title: 'Settlement proposal created', severity: 'info', type: 'dispute' },
+  settlement_proposal_rejected: { title: 'Settlement proposal rejected', severity: 'warning', type: 'dispute' },
+  settlement_proposal_countered: { title: 'Counter-offer received', severity: 'info', type: 'dispute' },
+  settlement_proposal_accepted: { title: 'Settlement proposal accepted', severity: 'success', type: 'dispute' },
   dispute_resolved: { title: 'Dispute resolved', severity: 'success', type: 'dispute' },
   settled: { title: 'Funds settled', severity: 'success', type: 'transaction' },
 };
@@ -29,6 +33,10 @@ const ADMIN_RELEVANT_EVENTS = new Set([
   'dispute_registered',
   'evidence_submitted',
   'mutual_resolution_proposed',
+  'settlement_proposal_created',
+  'settlement_proposal_rejected',
+  'settlement_proposal_countered',
+  'settlement_proposal_accepted',
   'dispute_resolved',
 ]);
 

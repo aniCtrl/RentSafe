@@ -141,6 +141,14 @@ export function useEventStream(agreementId?: number | string | null, disputeId?:
         return `Additional evidence submitted by ${shortAddress(String(parts[0] ?? ''))}`;
       case 'mutual_resolution_proposed':
         return `Mutual settlement proposed: ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM to landlord, ${formatStroopsToXlm(asStroopsLike(parts[2]))} XLM to tenant`;
+      case 'settlement_proposal_created':
+        return `Settlement proposal created by ${shortAddress(String(parts[0] ?? ''))}: ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM to landlord, ${formatStroopsToXlm(asStroopsLike(parts[2]))} XLM to tenant`;
+      case 'settlement_proposal_rejected':
+        return `Settlement proposal rejected by ${shortAddress(String(parts[0] ?? ''))}`;
+      case 'settlement_proposal_countered':
+        return `Counter-offer created by ${shortAddress(String(parts[0] ?? ''))}: ${formatStroopsToXlm(asStroopsLike(parts[2]))} XLM to landlord, ${formatStroopsToXlm(asStroopsLike(parts[3]))} XLM to tenant`;
+      case 'settlement_proposal_accepted':
+        return `Settlement proposal accepted: ${formatStroopsToXlm(asStroopsLike(parts[1]))} XLM to landlord, ${formatStroopsToXlm(asStroopsLike(parts[2]))} XLM to tenant`;
       default:
         return 'Agreement activity detected on-chain';
     }
@@ -260,7 +268,15 @@ export function useEventStream(agreementId?: number | string | null, disputeId?:
                   deduction_rejected: [0],
                   dispute_raised: [1],
                 }[action] ?? [])
-              : ({ dispute_registered: [1], evidence_submitted: [0], mutual_resolution_proposed: [0] }[action] ?? []);
+              : ({
+                  dispute_registered: [1],
+                  evidence_submitted: [0],
+                  mutual_resolution_proposed: [0],
+                  settlement_proposal_created: [0],
+                  settlement_proposal_rejected: [0, 1],
+                  settlement_proposal_countered: [0],
+                  settlement_proposal_accepted: [0],
+                }[action] ?? []);
             const actorCandidates = actorIndexes
               .map((index) => valueParts[index])
               .filter((part) => typeof part === 'string' && part.length > 0)

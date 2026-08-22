@@ -14,10 +14,12 @@ export const AGREEMENT_STATUS_LABELS = [
 
 export const DISPUTE_STATUS_LABELS = ['Open', 'EvidenceSubmitted', 'Resolved'] as const;
 export const RESOLUTION_SOURCE_LABELS = ['FullRefund', 'DeductionAccepted', 'Arbitration'] as const;
+export const SETTLEMENT_PROPOSAL_STATUS_LABELS = ['Pending', 'Accepted', 'Rejected', 'Superseded'] as const;
 
 export type AgreementStatusLabel = (typeof AGREEMENT_STATUS_LABELS)[number];
 export type DisputeStatusLabel = (typeof DISPUTE_STATUS_LABELS)[number];
 export type ResolutionSourceLabel = (typeof RESOLUTION_SOURCE_LABELS)[number];
+export type SettlementProposalStatusLabel = (typeof SETTLEMENT_PROPOSAL_STATUS_LABELS)[number];
 
 export interface EvidenceEntry {
   submitter: string;
@@ -71,6 +73,8 @@ export interface DisputeRecord {
   outcomeResolvedAt: number;
   resolutionTxHash?: string;
   mutualResolution?: MutualResolutionRecord | null;
+  currentSettlementProposal?: SettlementProposalRecord | null;
+  settlementProposals: SettlementProposalRecord[];
 }
 
 export interface MutualResolutionRecord {
@@ -80,6 +84,19 @@ export interface MutualResolutionRecord {
   proposedAt: number;
   resolved: boolean;
   resolvedAt: number;
+}
+
+export interface SettlementProposalRecord {
+  proposalId: number;
+  disputeId: number;
+  proposer: string;
+  landlordAmount: bigint;
+  tenantAmount: bigint;
+  reason: string;
+  proposedAt: number;
+  respondedAt: number;
+  status: number;
+  statusLabel: SettlementProposalStatusLabel;
 }
 
 const getField = <T = unknown>(value: any, ...keys: string[]): T | undefined => {
@@ -146,6 +163,9 @@ export const disputeStatusLabelFromValue = (value: unknown): DisputeStatusLabel 
 
 export const resolutionSourceLabelFromValue = (value: unknown): ResolutionSourceLabel =>
   enumLabelFromValue(value, RESOLUTION_SOURCE_LABELS, 'FullRefund');
+
+export const settlementProposalStatusLabelFromValue = (value: unknown): SettlementProposalStatusLabel =>
+  enumLabelFromValue(value, SETTLEMENT_PROPOSAL_STATUS_LABELS, 'Pending');
 
 export const agreementStatusCodeFromValue = (value: unknown): number =>
   AGREEMENT_STATUS_LABELS.indexOf(agreementStatusLabelFromValue(value));
@@ -255,6 +275,8 @@ export const decodeDispute = (raw: unknown): DisputeRecord => {
     outcomeLandlordAmount: toBigInt(getField(raw, 'outcome_landlord_amount', 'outcomeLandlordAmount')),
     outcomeTenantAmount: toBigInt(getField(raw, 'outcome_tenant_amount', 'outcomeTenantAmount')),
     outcomeResolvedAt: toNumber(getField(raw, 'outcome_resolved_at', 'outcomeResolvedAt')),
+    currentSettlementProposal: null,
+    settlementProposals: [],
   };
 };
 
@@ -266,3 +288,19 @@ export const decodeMutualResolution = (raw: unknown): MutualResolutionRecord => 
   resolved: Boolean(getField(raw, 'resolved')),
   resolvedAt: toNumber(getField(raw, 'resolved_at', 'resolvedAt')),
 });
+
+export const decodeSettlementProposal = (raw: unknown): SettlementProposalRecord => {
+  const statusValue = getField(raw, 'status');
+  return {
+    proposalId: toNumber(getField(raw, 'id', 'proposal_id', 'proposalId')),
+    disputeId: toNumber(getField(raw, 'dispute_id', 'disputeId')),
+    proposer: toAddress(getField(raw, 'proposer')),
+    landlordAmount: toBigInt(getField(raw, 'landlord_amount', 'landlordAmount')),
+    tenantAmount: toBigInt(getField(raw, 'tenant_amount', 'tenantAmount')),
+    reason: String(getField(raw, 'reason') ?? ''),
+    proposedAt: toNumber(getField(raw, 'proposed_at', 'proposedAt')),
+    respondedAt: toNumber(getField(raw, 'responded_at', 'respondedAt')),
+    status: SETTLEMENT_PROPOSAL_STATUS_LABELS.indexOf(settlementProposalStatusLabelFromValue(statusValue)),
+    statusLabel: settlementProposalStatusLabelFromValue(statusValue),
+  };
+};

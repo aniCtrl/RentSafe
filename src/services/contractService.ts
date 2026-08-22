@@ -8,14 +8,31 @@ import {
 import {
   AgreementRecord,
   DisputeRecord,
+  SettlementProposalRecord,
   decodeAgreement,
   decodeDispute,
   decodeMutualResolution,
+  decodeSettlementProposal,
   toNumber,
 } from '@/lib/rentsafe';
 
 const asObject = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+
+const unwrapOptional = (value: unknown): unknown | null => {
+  if (!value || typeof value !== 'object') return value ?? null;
+  const option = asObject(value);
+  if (option.tag === 'None' || 'None' in option) return null;
+  if (option.tag === 'Some') {
+    const someValue = option.values ?? option.value ?? option.Some;
+    return Array.isArray(someValue) ? someValue[0] ?? null : someValue ?? null;
+  }
+  if ('Some' in option) {
+    const someValue = option.Some;
+    return Array.isArray(someValue) ? someValue[0] ?? null : someValue ?? null;
+  }
+  return value;
+};
 
 export class ContractService {
   static async getEscrowConfig() {
@@ -117,21 +134,30 @@ export class ContractService {
     const raw = await readContractView(DEFAULT_DISPUTE_ID, 'get_dispute', [Number(disputeId)]);
     const dispute = decodeDispute(raw);
     let mutualResolution = null;
+    let currentSettlementProposal = null;
+    let settlementProposals: SettlementProposalRecord[] = [];
     try {
       const proposalRaw = await readContractView(DEFAULT_DISPUTE_ID, 'get_mutual_resolution', [Number(disputeId)]);
-      if (proposalRaw && typeof proposalRaw === 'object') {
-        const proposal = proposalRaw as Record<string, unknown>;
-        if (proposal.tag === 'Some') {
-          const someValue = proposal.values ?? proposal.value ?? proposal.Some;
-          mutualResolution = decodeMutualResolution(Array.isArray(someValue) ? someValue[0] : someValue);
-        } else if (proposal.tag !== 'None') {
-          mutualResolution = decodeMutualResolution(proposalRaw);
-        }
-      }
+      const proposal = unwrapOptional(proposalRaw);
+      if (proposal) mutualResolution = decodeMutualResolution(proposal);
     } catch {
       // Older deployed dispute contracts do not expose mutual settlement yet.
     }
-    return { ...dispute, mutualResolution };
+    try {
+      const historyRaw = await readContractView(DEFAULT_DISPUTE_ID, 'get_settlement_proposals', [Number(disputeId)]);
+      const history = unwrapOptional(historyRaw);
+      if (Array.isArray(history)) settlementProposals = history.map(decodeSettlementProposal);
+    } catch {
+      // Older deployed dispute contracts do not expose negotiated proposals yet.
+    }
+    try {
+      const currentRaw = await readContractView(DEFAULT_DISPUTE_ID, 'get_current_settlement_proposal', [Number(disputeId)]);
+      const current = unwrapOptional(currentRaw);
+      if (current) currentSettlementProposal = decodeSettlementProposal(current);
+    } catch {
+      // Older deployed dispute contracts do not expose negotiated proposals yet.
+    }
+    return { ...dispute, mutualResolution, currentSettlementProposal, settlementProposals };
   }
 
   static async getDisputeByAgreement(agreementId: number | string): Promise<DisputeRecord | null> {
@@ -180,6 +206,70 @@ export class ContractService {
       [userAddress, disputeId, params.landlordAmount, params.tenantAmount],
       userAddress,
     );
+  }
+
+  static async createSettlementProposal(
+    disputeId: number,
+    params: { landlordAmount: bigint; tenantAmount: bigint; reason?: string },
+    userAddress: string,
+  ) {
+    const { txHash, returnValue } = await writeContractMethodDetailed(
+      DEFAULT_DISPUTE_ID,
+      'create_settlement_proposal',
+      [userAddress, disputeId, params.landlordAmount, params.tenantAmount, params.reason ?? ''],
+      userAddress,
+    );
+
+    return { txHash, proposalId: toNumber(returnValue) };
+  }
+
+  static async acceptSettlementProposal(
+    disputeId: number,
+    proposalId: number,
+    userAddress: string,
+  ) {
+    return writeContractMethod(
+      DEFAULT_DISPUTE_ID,
+      'accept_settlement_proposal',
+      [userAddress, disputeId, proposalId],
+      userAddress,
+    );
+  }
+
+  static async rejectSettlementProposal(
+    disputeId: number,
+    proposalId: number,
+    userAddress: string,
+  ) {
+    return writeContractMethod(
+      DEFAULT_DISPUTE_ID,
+      'reject_settlement_proposal',
+      [userAddress, disputeId, proposalId],
+      userAddress,
+    );
+  }
+
+  static async counterSettlementProposal(
+    disputeId: number,
+    proposalId: number,
+    params: { landlordAmount: bigint; tenantAmount: bigint; reason?: string },
+    userAddress: string,
+  ) {
+    const { txHash, returnValue } = await writeContractMethodDetailed(
+      DEFAULT_DISPUTE_ID,
+      'counter_settlement_proposal',
+      [
+        userAddress,
+        disputeId,
+        proposalId,
+        params.landlordAmount,
+        params.tenantAmount,
+        params.reason ?? '',
+      ],
+      userAddress,
+    );
+
+    return { txHash, proposalId: toNumber(returnValue) };
   }
 
   static async resolveDispute(

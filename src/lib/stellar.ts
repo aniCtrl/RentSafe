@@ -64,14 +64,22 @@ const METHOD_PARAMETER_TYPES: Record<string, string[]> = {
   'raise_dispute': ['u64', 'address', 'string', 'string'],
   'settle': ['u64'],
   'get_agreement': ['u64'],
+  'get_agreement_deposit': ['u64'],
 
   // Dispute contract methods
   'submit_evidence': ['u64', 'address', 'string'],
   'propose_mutual_resolution': ['address', 'u64', 'i128', 'i128'],
+  'create_settlement_proposal': ['address', 'u64', 'i128', 'i128', 'string'],
+  'accept_settlement_proposal': ['address', 'u64', 'u64'],
+  'reject_settlement_proposal': ['address', 'u64', 'u64'],
+  'counter_settlement_proposal': ['address', 'u64', 'u64', 'i128', 'i128', 'string'],
   'resolve_dispute': ['address', 'u64', 'i128', 'i128'],
   'get_dispute': ['u64'],
   'get_dispute_by_agreement': ['u64'],
   'get_mutual_resolution': ['u64'],
+  'get_settlement_proposal': ['u64'],
+  'get_current_settlement_proposal': ['u64'],
+  'get_settlement_proposals': ['u64'],
 };
 
 function convertArg(arg: unknown) {
