@@ -4,6 +4,7 @@ import { getDisputeTimeline, getTimelineCurrentStep } from '@/lib/disputeTimelin
 import { isEventRelevant } from '@/lib/notifications';
 import { DEFAULT_PLATFORM_ADMIN_ID } from '@/lib/stellar';
 import { translateStellarError } from '@/lib/errors';
+import { filterVisibleEvents, type DecodedEvent } from '@/hooks/useEventStream';
 
 describe('review improvements', () => {
   beforeEach(() => {
@@ -97,6 +98,31 @@ describe('review improvements', () => {
     expect(isEventRelevant(event, 'g_tenant')).toBe(true);
     expect(isEventRelevant({ ...event, type: 'dispute_resolved', actorAddresses: [], agreementId: 1 }, DEFAULT_PLATFORM_ADMIN_ID)).toBe(true);
     expect(isEventRelevant(event, 'G_UNRELATED')).toBe(false);
+  });
+
+  it('keeps escrow and dispute activity together for a disputed agreement', () => {
+    const event = (overrides: Partial<DecodedEvent>): DecodedEvent => ({
+      id: 'event',
+      ledger: 1,
+      type: 'agreement_created',
+      message: 'Activity',
+      timestamp: 1,
+      contractId: 'CONTRACT',
+      actorAddresses: [],
+      ...overrides,
+    });
+
+    const events = [
+      event({ id: 'escrow-12', agreementId: 12, type: 'deposit_locked' }),
+      event({ id: 'dispute-4', disputeId: 4, type: 'evidence_submitted' }),
+      event({ id: 'escrow-13', agreementId: 13, type: 'deposit_locked' }),
+      event({ id: 'dispute-5', disputeId: 5, type: 'evidence_submitted' }),
+    ];
+
+    expect(filterVisibleEvents(events, false, true, 12, true, 4).map(({ id }) => id)).toEqual([
+      'escrow-12',
+      'dispute-4',
+    ]);
   });
 
   it('explains when a deployed contract is missing the mutual settlement entrypoint', () => {

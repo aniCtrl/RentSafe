@@ -93,9 +93,15 @@ function mergeEvents(...eventLists: DecodedEvent[][]): DecodedEvent[] {
   return Array.from(byId.values()).sort((a, b) => b.ledger - a.ledger);
 }
 
-function filterVisibleEvents(events: DecodedEvent[], isAllMode: boolean, isValidAgreementId: boolean, numericAgreementId: number, hasDisputeFilter: boolean, numericDisputeId: number) {
+export function filterVisibleEvents(events: DecodedEvent[], isAllMode: boolean, isValidAgreementId: boolean, numericAgreementId: number, hasDisputeFilter: boolean, numericDisputeId: number) {
   return events.filter((event) => {
-    if (!isAllMode && isValidAgreementId && event.agreementId !== numericAgreementId) return false;
+    // Agreement activity remains the primary scope. When an agreement has a
+    // dispute, include dispute-contract events as well, even when enrichment
+    // has not yet mapped them back to the agreement.
+    if (!isAllMode && isValidAgreementId) {
+      return event.agreementId === numericAgreementId
+        || (hasDisputeFilter && event.disputeId === numericDisputeId);
+    }
     if (hasDisputeFilter && event.disputeId !== numericDisputeId) return false;
     return true;
   });
