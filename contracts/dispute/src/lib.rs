@@ -1080,6 +1080,244 @@ mod test {
     }
 
     #[test]
+    fn test_negotiated_settlement_follows_reject_counter_and_accept_flow() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+
+        let escrow_address = env.register(StubEscrow, ());
+        let escrow_client = StubEscrowClient::new(&env, &escrow_address);
+        let dispute_address = env.register(DisputeContract, ());
+        let dispute_client = DisputeContractClient::new(&env, &dispute_address);
+
+        env.mock_all_auths_allowing_non_root_auth();
+        escrow_client.initialize(&landlord, &tenant);
+        dispute_client.initialize(&admin, &escrow_address);
+        let dispute_id = dispute_client.register_dispute(
+            &12_u64,
+            &landlord,
+            &tenant,
+            &landlord,
+            &String::from_str(&env, "Negotiate the disputed deduction"),
+        );
+
+        let first_id = dispute_client.create_settlement_proposal(
+            &landlord,
+            &dispute_id,
+            &300_i128,
+            &700_i128,
+            &String::from_str(&env, "Initial landlord proposal"),
+        );
+        assert_eq!(
+            dispute_client
+                .get_current_settlement_proposal(&dispute_id)
+                .unwrap()
+                .id,
+            first_id
+        );
+        assert_eq!(escrow_client.get_last_callback(), (0_u64, 0_i128, 0_i128));
+
+        dispute_client.reject_settlement_proposal(&tenant, &dispute_id, &first_id);
+        let rejected = dispute_client.get_settlement_proposal(&first_id);
+        assert_eq!(rejected.status, SettlementProposalStatus::Rejected);
+        assert!(dispute_client
+            .get_current_settlement_proposal(&dispute_id)
+            .is_none());
+        assert_eq!(escrow_client.get_last_callback(), (0_u64, 0_i128, 0_i128));
+
+        let second_id = dispute_client.create_settlement_proposal(
+            &tenant,
+            &dispute_id,
+            &150_i128,
+            &850_i128,
+            &String::from_str(&env, "Tenant counter proposal"),
+        );
+        dispute_client.reject_settlement_proposal(&landlord, &dispute_id, &second_id);
+        assert_eq!(
+            dispute_client.get_settlement_proposal(&second_id).status,
+            SettlementProposalStatus::Rejected
+        );
+        assert_eq!(escrow_client.get_last_callback(), (0_u64, 0_i128, 0_i128));
+
+        let final_id = dispute_client.create_settlement_proposal(
+            &landlord,
+            &dispute_id,
+            &200_i128,
+            &800_i128,
+            &String::from_str(&env, "Final settlement proposal"),
+        );
+        dispute_client.accept_settlement_proposal(&tenant, &dispute_id, &final_id);
+
+        let history = dispute_client.get_settlement_proposals(&dispute_id);
+        assert_eq!(history.len(), 3);
+        assert_eq!(
+            history.get(0).unwrap().status,
+            SettlementProposalStatus::Rejected
+        );
+        assert_eq!(
+            history.get(1).unwrap().status,
+            SettlementProposalStatus::Rejected
+        );
+        assert_eq!(
+            history.get(2).unwrap().status,
+            SettlementProposalStatus::Accepted
+        );
+        assert_eq!(history.get(2).unwrap().landlord_amount, 200_i128);
+        assert_eq!(history.get(2).unwrap().tenant_amount, 800_i128);
+        assert!(dispute_client
+            .get_current_settlement_proposal(&dispute_id)
+            .is_none());
+        assert_eq!(
+            dispute_client.get_dispute(&dispute_id).status,
+            DisputeStatus::Resolved
+        );
+        assert_eq!(escrow_client.get_last_callback(), (12_u64, 200_i128, 800_i128));
+    }
+
+    #[test]
+    fn test_counter_offer_supersedes_proposal_and_blocks_stale_acceptance() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+
+        let escrow_address = env.register(StubEscrow, ());
+        let escrow_client = StubEscrowClient::new(&env, &escrow_address);
+        let dispute_address = env.register(DisputeContract, ());
+        let dispute_client = DisputeContractClient::new(&env, &dispute_address);
+
+        env.mock_all_auths_allowing_non_root_auth();
+        escrow_client.initialize(&landlord, &tenant);
+        dispute_client.initialize(&admin, &escrow_address);
+        let dispute_id = dispute_client.register_dispute(
+            &13_u64,
+            &landlord,
+            &tenant,
+            &landlord,
+            &String::from_str(&env, "Counter-offer test"),
+        );
+
+        let first_id = dispute_client.create_settlement_proposal(
+            &landlord,
+            &dispute_id,
+            &300_i128,
+            &700_i128,
+            &String::from_str(&env, "First offer"),
+        );
+        let counter_id = dispute_client.counter_settlement_proposal(
+            &tenant,
+            &dispute_id,
+            &first_id,
+            &150_i128,
+            &850_i128,
+            &String::from_str(&env, "Counter-offer"),
+        );
+
+        assert_eq!(
+            dispute_client.get_settlement_proposal(&first_id).status,
+            SettlementProposalStatus::Superseded
+        );
+        assert_eq!(
+            dispute_client
+                .get_current_settlement_proposal(&dispute_id)
+                .unwrap()
+                .id,
+            counter_id
+        );
+        let stale_result = dispute_client.try_accept_settlement_proposal(
+            &landlord,
+            &dispute_id,
+            &first_id,
+        );
+        assert!(stale_result.is_err());
+        assert_eq!(escrow_client.get_last_callback(), (0_u64, 0_i128, 0_i128));
+
+        dispute_client.accept_settlement_proposal(&landlord, &dispute_id, &counter_id);
+        assert_eq!(
+            dispute_client.get_settlement_proposal(&counter_id).status,
+            SettlementProposalStatus::Accepted
+        );
+        assert_eq!(escrow_client.get_last_callback(), (13_u64, 150_i128, 850_i128));
+    }
+
+    #[test]
+    fn test_negotiated_settlement_rejects_invalid_splits_and_unauthorized_actions() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+        let outsider = Address::generate(&env);
+
+        let escrow_address = env.register(StubEscrow, ());
+        let escrow_client = StubEscrowClient::new(&env, &escrow_address);
+        let dispute_address = env.register(DisputeContract, ());
+        let dispute_client = DisputeContractClient::new(&env, &dispute_address);
+
+        env.mock_all_auths_allowing_non_root_auth();
+        escrow_client.initialize(&landlord, &tenant);
+        dispute_client.initialize(&admin, &escrow_address);
+        let dispute_id = dispute_client.register_dispute(
+            &14_u64,
+            &landlord,
+            &tenant,
+            &landlord,
+            &String::from_str(&env, "Authorization and amount test"),
+        );
+
+        assert!(dispute_client
+            .try_create_settlement_proposal(
+                &landlord,
+                &dispute_id,
+                &400_i128,
+                &500_i128,
+                &String::from_str(&env, "Does not equal deposit"),
+            )
+            .is_err());
+        assert!(dispute_client
+            .try_create_settlement_proposal(
+                &outsider,
+                &dispute_id,
+                &300_i128,
+                &700_i128,
+                &String::from_str(&env, "Unauthorized"),
+            )
+            .is_err());
+
+        let proposal_id = dispute_client.create_settlement_proposal(
+            &landlord,
+            &dispute_id,
+            &300_i128,
+            &700_i128,
+            &String::from_str(&env, "Valid proposal"),
+        );
+        assert!(dispute_client
+            .try_accept_settlement_proposal(&landlord, &dispute_id, &proposal_id)
+            .is_err());
+        assert!(dispute_client
+            .try_reject_settlement_proposal(&landlord, &dispute_id, &proposal_id)
+            .is_err());
+        assert!(dispute_client
+            .try_reject_settlement_proposal(&outsider, &dispute_id, &proposal_id)
+            .is_err());
+        assert!(dispute_client
+            .try_counter_settlement_proposal(
+                &outsider,
+                &dispute_id,
+                &proposal_id,
+                &200_i128,
+                &800_i128,
+                &String::from_str(&env, "Unauthorized counter"),
+            )
+            .is_err());
+        assert_eq!(
+            dispute_client.get_settlement_proposal(&proposal_id).status,
+            SettlementProposalStatus::Pending
+        );
+        assert_eq!(escrow_client.get_last_callback(), (0_u64, 0_i128, 0_i128));
+    }
+
+    #[test]
     fn test_rbac_grant_revoke_arbitrator() {
         let env = Env::default();
         let admin = Address::generate(&env);

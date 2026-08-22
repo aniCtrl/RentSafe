@@ -854,6 +854,95 @@ mod test {
     }
 
     #[test]
+    fn test_negotiated_settlement_keeps_deposit_locked_until_acceptance() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let landlord = Address::generate(&env);
+        let tenant = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+
+        let token_address = env
+            .register_stellar_asset_contract_v2(token_admin.clone())
+            .address();
+        let token_admin_client = token::StellarAssetClient::new(&env, &token_address);
+        let token_client = token::Client::new(&env, &token_address);
+
+        let escrow_address = env.register(EscrowContract, ());
+        let dispute_address = env.register(DisputeContract, ());
+        let escrow_client = EscrowContractClient::new(&env, &escrow_address);
+        let dispute_client = DisputeContractClient::new(&env, &dispute_address);
+
+        env.mock_all_auths_allowing_non_root_auth();
+        escrow_client.initialize(&admin, &dispute_address, &token_address);
+        dispute_client.initialize(&admin, &escrow_address);
+
+        let agreement_id = escrow_client.create_agreement(
+            &landlord,
+            &tenant,
+            &String::from_str(&env, "Negotiated settlement property"),
+            &1_000_i128,
+            &2_000_i128,
+            &10_u64,
+            &20_u64,
+        );
+        token_admin_client.mint(&tenant, &1_000_i128);
+        escrow_client.lock_deposit(&agreement_id);
+        escrow_client.request_deduction(
+            &agreement_id,
+            &300_i128,
+            &String::from_str(&env, "Damage claim"),
+        );
+        escrow_client.respond_to_deduction(&agreement_id, &false);
+        let dispute_id = escrow_client.raise_dispute(
+            &agreement_id,
+            &tenant,
+            &String::from_str(&env, "Dispute the deduction"),
+            &String::from_str(&env, "ipfs://evidence"),
+        );
+
+        let proposal_id = dispute_client.create_settlement_proposal(
+            &landlord,
+            &dispute_id,
+            &300_i128,
+            &700_i128,
+            &String::from_str(&env, "Settlement offer"),
+        );
+        assert_eq!(
+            escrow_client.get_agreement_deposit(&agreement_id),
+            1_000_i128
+        );
+        assert_eq!(token_client.balance(&escrow_address), 1_000_i128);
+        assert_eq!(token_client.balance(&landlord), 0_i128);
+        assert_eq!(token_client.balance(&tenant), 0_i128);
+        assert_eq!(
+            escrow_client.get_agreement(&agreement_id).status,
+            AgreementStatus::AwaitingArbitration
+        );
+
+        dispute_client.reject_settlement_proposal(&tenant, &dispute_id, &proposal_id);
+        assert_eq!(token_client.balance(&escrow_address), 1_000_i128);
+        assert_eq!(token_client.balance(&landlord), 0_i128);
+        assert_eq!(token_client.balance(&tenant), 0_i128);
+
+        let final_id = dispute_client.create_settlement_proposal(
+            &tenant,
+            &dispute_id,
+            &200_i128,
+            &800_i128,
+            &String::from_str(&env, "Counter settlement offer"),
+        );
+        dispute_client.accept_settlement_proposal(&landlord, &dispute_id, &final_id);
+
+        let settled = escrow_client.get_agreement(&agreement_id);
+        assert_eq!(settled.status, AgreementStatus::Settled);
+        assert_eq!(settled.resolution_landlord_amount, 200_i128);
+        assert_eq!(settled.resolution_tenant_amount, 800_i128);
+        assert_eq!(token_client.balance(&escrow_address), 0_i128);
+        assert_eq!(token_client.balance(&landlord), 200_i128);
+        assert_eq!(token_client.balance(&tenant), 800_i128);
+    }
+
+    #[test]
     fn test_create_agreement_bug_reproduce() {
         let env = Env::default();
         let admin = Address::generate(&env);
