@@ -43,16 +43,16 @@ describe('review improvements', () => {
     expect(timeline.steps[9].timestamp).toBe(60);
   });
 
-  it('exposes the role-aware next action and evidence progress', () => {
+  it('exposes the participant next action and evidence progress', () => {
     const timeline = getDisputeTimeline(
       { status: 8, createdAt: 10, fundedAt: 20, deductionRequestedAt: 30, resolutionAt: 0 },
       { status: 1, createdAt: 40, evidence: [{ submitter: 'GTEST', evidenceRef: 'ipfs://ref', submittedAt: 50 }], outcomeResolvedAt: 0, landlord: 'G_LANDLORD', tenant: 'G_TENANT', currentSettlementProposal: null },
-      'Arbitrator',
+      'Tenant',
     );
 
-    expect(timeline.current.id).toBe('awaiting-arbitration');
+    expect(timeline.current.id).toBe('settlement-negotiation');
     expect(timeline.nextActor).toBe('You');
-    expect(timeline.nextAction.toLowerCase()).toContain('review evidence');
+    expect(timeline.nextAction.toLowerCase()).toContain('make a settlement proposal');
     expect(timeline.steps[5].state).toBe('completed');
     expect(timeline.steps[5].timestamp).toBe(50);
   });

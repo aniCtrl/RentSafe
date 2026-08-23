@@ -171,7 +171,7 @@ function LandingPage() {
                 <span className="material-symbols-outlined text-[#000000] text-xl">sync_alt</span>
               </div>
               <h3 className="text-sm font-bold text-[#000000] mb-2">Automated Payouts</h3>
-              <p className="text-xs text-[#585f6c] leading-relaxed">Safe split release at lease end based on direct mutual consensus or arbitration.</p>
+              <p className="text-xs text-[#585f6c] leading-relaxed">Safe split release at lease end based on direct mutual agreement and structured negotiation.</p>
             </div>
           </div>
         </section>

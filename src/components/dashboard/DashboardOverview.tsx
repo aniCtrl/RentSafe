@@ -8,7 +8,7 @@ import ActivityFeed from '@/components/ActivityFeed';
 import TransactionCenter from '@/components/TransactionCenter';
 import { useUserAgreements, useDashboardMetrics } from '@/hooks/useChainQueries';
 import { useAppStore } from '@/store/useAppStore';
-import { AGREEMENT_STATUS_LABELS, formatStroopsToXlm, formatAgreementId } from '@/lib/rentsafe';
+import { agreementStatusDisplayLabel, formatStroopsToXlm, formatAgreementId } from '@/lib/rentsafe';
 
 const WalletConnectModal = dynamic(() => import('@/components/WalletConnectModal'), { ssr: false });
 
@@ -42,7 +42,7 @@ export default function DashboardOverview() {
           <div className="bg-[#ffffff] p-6 rounded-[24px] border border-[#e2e2e2] shadow-sm">
             <p className="text-[10px] font-bold text-[#585f6c] uppercase tracking-wider mb-2">Awaiting Settlement</p>
             <p className="text-2xl font-black text-black">{loadingMetrics ? '...' : address ? metrics?.pendingCount || '0.00' : '0.00'} XLM</p>
-            <p className="text-[10px] text-[#585f6c] mt-1">Agreements pending payout or arbitration completion</p>
+            <p className="text-[10px] text-[#585f6c] mt-1">Agreements pending payout or dispute settlement</p>
           </div>
         </div>
 
@@ -92,7 +92,7 @@ export default function DashboardOverview() {
                           agreement.status === 2 ? 'bg-emerald-100 text-emerald-800' : 'bg-[#dce2f3] text-[#5e6572]'
                         }`}
                       >
-                        {AGREEMENT_STATUS_LABELS[agreement.status]}
+                        {agreementStatusDisplayLabel(agreement.status)}
                       </span>
                     </div>
 

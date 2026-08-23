@@ -7,14 +7,14 @@ export const DISPUTE_TIMELINE_STEPS = [
   { id: 'move-out', label: 'Move-out decision', description: 'The landlord can request a refund or propose a deduction.' },
   { id: 'dispute-raised', label: 'Dispute raised', description: 'A disputed deduction has been registered for review.' },
   { id: 'evidence-submitted', label: 'Evidence submitted', description: 'The parties can add evidence references to the dispute.' },
-  { id: 'awaiting-arbitration', label: 'Settlement negotiation', description: 'The participants can negotiate a settlement while funds remain locked.' },
+  { id: 'settlement-negotiation', label: 'Settlement negotiation', description: 'The participants can negotiate a settlement while funds remain locked.' },
   { id: 'resolution-recorded', label: 'Resolution recorded', description: 'The outcome and fund split are recorded on-chain.' },
   { id: 'settled', label: 'Funds settled', description: 'The escrow funds have been disbursed.' },
   { id: 'closed', label: 'Agreement closed', description: 'The agreement lifecycle is complete.' },
 ] as const;
 
 export type DisputeTimelineStepId = (typeof DISPUTE_TIMELINE_STEPS)[number]['id'];
-export type TimelineRole = 'Landlord' | 'Tenant' | 'Arbitrator' | 'Viewer' | 'Guest';
+export type TimelineRole = 'Landlord' | 'Tenant' | 'Viewer' | 'Guest';
 
 export interface TimelineStepState {
   id: DisputeTimelineStepId;
@@ -103,11 +103,8 @@ function getNextAction(
   if (agreementStatus === 6) return participantAction(role, 'Landlord or tenant', 'raise a dispute with evidence');
   if (agreementStatus === 7 || agreementStatus === 8) {
     if (!hasDispute) return { nextActor: 'Dispute contract', nextAction: 'Waiting for dispute details from RPC' };
-    if (disputeStatus === 2) return participantAction(role, 'Landlord or tenant', 'settle the arbitration outcome');
+    if (disputeStatus === 2) return participantAction(role, 'Landlord or tenant', 'settle the recorded outcome');
     if (disputeStatus === 1) {
-      if (role === 'Arbitrator') {
-        return { nextActor: 'You', nextAction: 'review evidence and resolve the dispute' };
-      }
       return negotiationAction(role, dispute, dispute.currentSettlementProposal);
     }
     if (disputeStatus === 0) {

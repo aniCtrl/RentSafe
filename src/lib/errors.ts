@@ -58,7 +58,7 @@ export function translateStellarError(error: unknown): string {
       case 8:
         return 'Deduction error: There is no active, pending deduction request for this agreement.';
       case 9:
-        return 'Dispute unresolved: Payout is locked because the dispute has not been resolved by the arbitrator yet.';
+        return 'Dispute unresolved: Payout remains locked until the landlord and tenant complete settlement.';
       case 10:
         return 'Invalid split distribution: The resolution split amounts do not equal the total deposit amount.';
       case 11:

@@ -4,7 +4,6 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { DEFAULT_PLATFORM_ADMIN_ID } from '@/lib/stellar';
 import { useAppStore } from '@/store/useAppStore';
 import { formatAgreementId, parseAgreementSlug } from '@/lib/rentsafe';
 import { useWalletNotifications } from '@/hooks/useWalletNotifications';
@@ -22,7 +21,6 @@ type NavItem = {
   href: string;
   label: string;
   icon: string;
-  adminOnly?: boolean;
   match: (pathname: string) => boolean;
 };
 
@@ -52,13 +50,6 @@ const NAV_ITEMS: NavItem[] = [
     match: (pathname) => pathname === '/analytics',
   },
   {
-    href: '/admin',
-    label: 'Admin',
-    icon: 'admin_panel_settings',
-    adminOnly: true,
-    match: (pathname) => pathname === '/admin',
-  },
-  {
     href: '/settings',
     label: 'Settings',
     icon: 'settings',
@@ -85,9 +76,7 @@ export default function AppShell({ title, children }: AppShellProps) {
   useWalletNotifications();
   const [modalOpen, setModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const isAdmin = !!address && address.toLowerCase() === DEFAULT_PLATFORM_ADMIN_ID.toLowerCase();
-
-  const visibleNavItems = useMemo(() => NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin), [isAdmin]);
+  const visibleNavItems = NAV_ITEMS;
 
   const searchSeed = useMemo(() => {
     if (pathname.startsWith('/inspect-escrow/')) {

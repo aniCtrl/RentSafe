@@ -272,16 +272,4 @@ export class ContractService {
     return { txHash, proposalId: toNumber(returnValue) };
   }
 
-  static async resolveDispute(
-    disputeId: number,
-    params: { landlordAmount: bigint; tenantAmount: bigint },
-    userAddress: string,
-  ) {
-    return writeContractMethod(
-      DEFAULT_DISPUTE_ID,
-      'resolve_dispute',
-      [userAddress, disputeId, params.landlordAmount, params.tenantAmount],
-      userAddress,
-    );
-  }
 }

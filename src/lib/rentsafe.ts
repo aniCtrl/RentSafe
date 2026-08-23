@@ -158,6 +158,9 @@ const enumLabelFromValue = <T extends readonly string[]>(value: unknown, labels:
 export const agreementStatusLabelFromValue = (value: unknown): AgreementStatusLabel =>
   enumLabelFromValue(value, AGREEMENT_STATUS_LABELS, 'Created');
 
+export const agreementStatusDisplayLabel = (status: number): string =>
+  status === 8 ? 'Settlement negotiation' : AGREEMENT_STATUS_LABELS[status] ?? 'Unknown';
+
 export const disputeStatusLabelFromValue = (value: unknown): DisputeStatusLabel =>
   enumLabelFromValue(value, DISPUTE_STATUS_LABELS, 'Open');
 

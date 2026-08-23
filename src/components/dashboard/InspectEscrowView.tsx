@@ -8,7 +8,7 @@ import { ContractService } from '@/services/contractService';
 import { useInspectEscrow } from '@/hooks/useInspectEscrow';
 import { DEFAULT_ESCROW_ID, DEFAULT_DISPUTE_ID } from '@/lib/stellar';
 import {
-  AGREEMENT_STATUS_LABELS,
+  agreementStatusDisplayLabel,
   formatStroopsToXlm,
   formatTimestamp,
   formatAgreementId,
@@ -150,7 +150,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
 
                 <div className="bg-[#f3f3f3] border border-[#c4c7c7]/50 rounded-full px-3 py-1 text-[10px] font-bold uppercase text-[#000000] flex items-center gap-1.5 shrink-0">
                   <div className="w-1.5 h-1.5 bg-[#000000] rounded-full" />
-                  <span>State: {AGREEMENT_STATUS_LABELS[agreement.status]}</span>
+                  <span>State: {agreementStatusDisplayLabel(agreement.status)}</span>
                 </div>
               </div>
 
@@ -777,7 +777,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                   <span className="font-semibold text-black">Tenant:</span> {formatStroopsToXlm(agreement.resolutionTenantAmount)} XLM
                 </p>
                 <p>
-                  <span className="font-semibold text-black">Source:</span> {agreement.resolutionSourceLabel}
+                  <span className="font-semibold text-black">Source:</span> {agreement.resolutionSource === 2 ? 'Participant settlement' : agreement.resolutionSourceLabel}
                 </p>
                 <p>
                   <span className="font-semibold text-black">Timestamp:</span> {formatTimestamp(agreement.resolutionAt)}
