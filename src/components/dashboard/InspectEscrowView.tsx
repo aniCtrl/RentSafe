@@ -597,12 +597,15 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                                   type="button"
                                   disabled={actionLoading !== null}
                                   onClick={() => {
-                                    setMutualLandlordAmount(formatStroopsToXlm(currentProposal.landlordAmount));
-                                    setMutualTenantAmount(formatStroopsToXlm(currentProposal.tenantAmount));
-                                    setSettlementReason('');
-                                    setActionError(null);
-                                    setShowCounterOffer(true);
+                                    if (!showCounterOffer) {
+                                      setMutualLandlordAmount(formatStroopsToXlm(currentProposal.landlordAmount));
+                                      setMutualTenantAmount(formatStroopsToXlm(currentProposal.tenantAmount));
+                                      setSettlementReason('');
+                                      setActionError(null);
+                                    }
+                                    setShowCounterOffer((visible) => !visible);
                                   }}
+                                  aria-expanded={showCounterOffer}
                                   className="btn-secondary rounded-xl border px-3 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
                                 >
                                   Counter-offer
