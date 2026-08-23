@@ -147,7 +147,7 @@ sequenceDiagram
     actor Tenant
     participant Escrow as RentSafe Escrow Contract
     participant Dispute as RentSafe Dispute Contract
-    actor Arbitrator as Designated Arbitrator (RBAC)
+    actor Arbitrator as Designated Arbitrator
 
     Landlord->>Escrow: create_agreement(params)
     Note over Escrow: State: Created (0)
@@ -179,6 +179,7 @@ sequenceDiagram
         Note over Escrow: State: Settled (9)
         Note over Dispute: State: Resolved (Resolved)
     else Arbitration fallback
+        Note over Arbitrator: RBAC-authorized fallback path
         Arbitrator->>Dispute: resolve_dispute(dispute_id, landlord_amt, tenant_amt)
         Dispute->>Escrow: resolve_dispute_callback(agreement_id, landlord_amt, tenant_amt)
         Note over Escrow: Arbitrator resolution also validates and settles the locked deposit
