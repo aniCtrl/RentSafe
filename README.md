@@ -57,7 +57,8 @@ Traditional rental deposit schemes are plagued by inefficiency, high transaction
 | High transaction & admin fees | Leveraging Stellar's high speed and extremely low fees for all agreement transitions. |
 | Opaque deposit custody | Funds are custodied transparently on-chain, visible to both parties at all times. |
 | Complex, slow refund payouts | Single-click release or refund triggers immediate on-chain settlement. |
-| Unresolved deposit disputes | On-chain dispute resolution with evidence submission and arbitrator arbitration. |
+| Unresolved deposit disputes | On-chain dispute resolution with evidence submission, structured participant negotiation, and arbitrator arbitration. |
+| Endless settlement back-and-forth | Versioned settlement proposals let either participant reject, counter, or accept a current split before funds move. |
 | Siloed/opaque dispute rulings | Arbitrator decisions are logged and executed programmatically on-chain. |
 
 ---
@@ -75,8 +76,16 @@ graph TD
     C -->|Queries State & Simulates Tx| F[Stellar SDK / Soroban RPC]
     F -->|Fetches Events & Submits Tx| G[Stellar Testnet Ledger]
     G -->|Executes Bytecode| H[Soroban Smart Contracts]
-    H1[Escrow Registry Contract] -.->|Inter-contract Calls| H2[Dispute Registry Contract]
+    H --> H1[Escrow Registry Contract]
+    H --> H2[Dispute Registry Contract]
+    H1 -.->|Inter-contract Calls| H2
+    B -->|Live events & saved activity| I[Activity Feed & Notifications]
+    I -->|Device-local persistence| C
+    B -.->|Optional external evidence helper| J[User-managed Google Drive]
+    J -.->|User pastes share link into reference field| B
 ```
+
+RentSafe does not upload or store evidence files. Users may manage photos or documents in their own Google Drive and submit only the resulting share URL in the existing on-chain evidence reference field.
 
 ---
 
@@ -101,13 +110,13 @@ RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 | `Role(Address, Symbol)` | Persistent | `Symbol` | Role authorization map |
 
 #### Public Functions
-`initialize` · `create_agreement` · `lock_deposit` · `request_full_refund` · `request_deduction` · `respond_to_deduction` · `raise_dispute` · `settle` · `get_agreement` · `get_agreement_ids` · `upgrade`
+`initialize` · `has_role` · `add_admin` · `remove_admin` · `create_agreement` · `lock_deposit` · `request_full_refund` · `request_deduction` · `respond_to_deduction` · `raise_dispute` · `settle` · `resolve_dispute_callback` · `get_config` · `get_agreement` · `get_agreement_deposit` · `get_agreement_parties` · `get_agreement_ids` · `upgrade`
 
 ---
 
 ### 3.2 RentSafe Dispute Registry (`rentsafe-dispute`)
 
-**Purpose**: Manages dispute records linked to agreements, gathers chronological evidence references from participants, and authorizes arbitrators to execute resolution payouts.
+**Purpose**: Manages dispute records linked to agreements, gathers chronological evidence references from participants, supports structured settlement negotiation, and authorizes arbitrators to execute resolution payouts.
 
 **Address**: [`CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W`](https://stellar.expert/explorer/testnet/contract/CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W)
 
@@ -118,10 +127,13 @@ RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 | `Config` | Instance | `DisputeConfig` | Linked Escrow address and super-admin |
 | `Dispute(u64)` | Persistent | `Dispute` | Struct storing dispute details, status, splits, and evidence references |
 | `DisputeIds` | Persistent | `Vec<u64>` | Running list of all dispute IDs |
+| `SettlementProposal(u64)` | Persistent | `SettlementProposal` | Versioned landlord/tenant payout proposal with status, reason, and timestamps |
+| `SettlementProposalIds(u64)` | Persistent | `Vec<u64>` | Ordered proposal history for each dispute |
+| `CurrentSettlementProposal(u64)` | Persistent | `u64` | Points to the one pending proposal that can receive a response |
 | `Role(Address, Symbol)` | Persistent | `Symbol` | Role authorization mapping for platform admin and arbitrators |
 
 #### Public Functions
-`initialize` · `register_dispute` · `submit_evidence` · `propose_mutual_resolution` · `resolve_dispute` · `get_dispute` · `get_dispute_by_agreement` · `get_mutual_resolution` · `get_dispute_ids` · `upgrade`
+`initialize` · `has_role` · `add_arbitrator` · `remove_arbitrator` · `add_admin` · `remove_admin` · `register_dispute` · `submit_evidence` · `propose_mutual_resolution` · `create_settlement_proposal` · `accept_settlement_proposal` · `reject_settlement_proposal` · `counter_settlement_proposal` · `resolve_dispute` · `get_config` · `get_dispute` · `get_dispute_by_agreement` · `get_mutual_resolution` · `get_settlement_proposal` · `get_current_settlement_proposal` · `get_settlement_proposals` · `get_dispute_ids` · `upgrade`
 
 ---
 
@@ -147,14 +159,35 @@ sequenceDiagram
     Note over Escrow: State: DeductionRejected (6)
     Tenant->>Escrow: raise_dispute(agreement_id, reason, evidence)
     Escrow->>Dispute: register_dispute(agreement_id, landlord, tenant)
-    Note over Dispute: Deploys Dispute Record
+    Note over Dispute: Stores dispute record and initial evidence reference
     Note over Escrow: State: AwaitingArbitration (8)
-    Arbitrator->>Dispute: resolve_dispute(dispute_id, landlord_amt, tenant_amt)
-    Dispute->>Escrow: resolve_dispute_callback(agreement_id, landlord_amt, tenant_amt)
-    Note over Escrow: Transfers locked XLM to Landlord & Tenant
-    Note over Escrow: State: Settled (9)
-    Note over Dispute: State: Resolved (Resolved)
+    Landlord->>Dispute: submit_evidence(dispute_id, evidence_ref)
+    Tenant->>Dispute: submit_evidence(dispute_id, evidence_ref)
+    Note over Landlord,Tenant: Either participant may create the current proposal
+    Landlord->>Dispute: create_settlement_proposal(dispute_id, split, reason)
+    Note over Dispute: Proposal status: Pending
+    loop Additional negotiation rounds while funds remain locked
+        Tenant->>Dispute: reject_settlement_proposal(...) or counter_settlement_proposal(...)
+        Note over Dispute: Rejected proposals remain history; counters replace the current proposal
+        Landlord->>Dispute: create_settlement_proposal(dispute_id, split, reason)
+        Note over Escrow,Dispute: Creating, rejecting, or countering never releases funds
+    end
+    alt Mutual agreement
+        Tenant->>Dispute: accept_settlement_proposal(dispute_id, proposal_id)
+        Dispute->>Escrow: resolve_dispute_callback(agreement_id, landlord_amt, tenant_amt)
+        Note over Escrow: Validates payout sum equals locked deposit and transfers XLM
+        Note over Escrow: State: Settled (9)
+        Note over Dispute: State: Resolved (Resolved)
+    else Arbitration fallback
+        Arbitrator->>Dispute: resolve_dispute(dispute_id, landlord_amt, tenant_amt)
+        Dispute->>Escrow: resolve_dispute_callback(agreement_id, landlord_amt, tenant_amt)
+        Note over Escrow: Arbitrator resolution also validates and settles the locked deposit
+        Note over Escrow: State: Settled (9)
+        Note over Dispute: State: Resolved (Resolved)
+    end
 ```
+
+Settlement negotiation is participant-controlled: either landlord or tenant may create a proposal, while only the other participant may reject, counter, or accept the current proposal. Every proposal records its split, proposer, status, optional reason, and timestamps. Only acceptance by the counterparty or an authorized arbitration resolution calls the escrow settlement callback; all payout amounts must add up to the locked deposit.
 
 ---
 
@@ -170,6 +203,14 @@ sequenceDiagram
 | **Wallet Protocol** | `@creit.tech/stellar-wallets-kit` | Multi-wallet connector supporting Freighter, xBull, and Albedo |
 | **Blockchain Client** | `@stellar/stellar-sdk` | Interface library to execute RPC simulations and build transactions |
 | **Styles & Theme** | Vanilla CSS, Outfit Font | Premium aesthetic featuring glassmorphism and custom micro-animations |
+
+### Current Workflow Capabilities
+
+- **Agreement lifecycle**: Create an agreement, lock the tenant deposit, manage move-out refunds or deductions, and settle the escrow on-chain.
+- **Evidence-backed disputes**: Landlord and tenant can submit multiple evidence references. Evidence files remain in user-managed external services; RentSafe stores only references.
+- **Negotiated mutual settlement**: Either participant can create a payout proposal. The other participant can accept, reject, or counter it, with a complete on-chain proposal history.
+- **Arbitration fallback**: An authorized arbitrator can resolve an unresolved dispute when participant negotiation does not complete.
+- **Activity and notifications**: Live contract events, wallet-scoped notifications, transaction hashes, and saved device-local activity help participants track the lifecycle.
 
 ---
 
@@ -221,6 +262,8 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 
 * **Role-Based Access Control (RBAC)**: Critical operations (such as resolving disputes or upgrading contract bytecode) require explicit authorization. The addresses are validated against storage-backed role values rather than static configurations.
 * **Upgrade Authority**: Upgrades of contract code can only be authorized by an address possessing the `admin` role.
+* **Negotiated settlement safeguards**: Only the landlord or tenant can participate in negotiation. Proposals must split exactly the locked deposit, and creating, rejecting, or countering a proposal cannot release funds.
+* **External evidence references**: Google Drive is an optional user-managed workflow. RentSafe does not authenticate to Google, call the Drive API, upload files, or store evidence files.
 * **Known Limitations**:
   * This is a testnet demo application. Real financial assets should not be stored.
   * Local storage is utilized to persist session configurations; users should clear local storage when using public terminals.
@@ -384,6 +427,8 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 | WASM Upload | `6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f` | [View ↗](https://stellar.expert/explorer/testnet/tx/6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f) |
 | Contract Instantiate | `6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f` | [View ↗](https://stellar.expert/explorer/testnet/tx/6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f) |
 | `initialize()` | `6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f` | [View ↗](https://stellar.expert/explorer/testnet/tx/6ffc390e0db860159f5ddb71d968c3fe9f96c44f6cc38713567562f4ca73b97f) |
+| WASM Upload (deposit validation compatibility) | `50af26f48fc33e5fd5e55423e9ea25d25b843bb0cb291607530c01714ebb7b79` | [View ↗](https://stellar.expert/explorer/testnet/tx/50af26f48fc33e5fd5e55423e9ea25d25b843bb0cb291607530c01714ebb7b79) |
+| WASM Upgrade (deposit validation compatibility) | `7eb3d301cdee057f21bcc6a9e4b831601efe9714edb2a23f8fec270d2e33247b` | [View ↗](https://stellar.expert/explorer/testnet/tx/7eb3d301cdee057f21bcc6a9e4b831601efe9714edb2a23f8fec270d2e33247b) |
 
 #### RentSafe Dispute
 
@@ -394,13 +439,15 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
 | `initialize()` | `04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127` | [View ↗](https://stellar.expert/explorer/testnet/tx/04664e169f848bc20e4dfc9e42cad0db73838ef0437cb3d9203fec2d4417f127) |
 | WASM Upload (mutual settlement) | `f3182eef472c33049fa7d925772da47f9976de5e2325d9ca9ff53bb321246e58` | [View ↗](https://stellar.expert/explorer/testnet/tx/f3182eef472c33049fa7d925772da47f9976de5e2325d9ca9ff53bb321246e58) |
 | WASM Upgrade | `a7a63795dccdea7d4336dae3def5d111d868fdb26eb92e2f5d5fd8658af01117` | [View ↗](https://stellar.expert/explorer/testnet/tx/a7a63795dccdea7d4336dae3def5d111d868fdb26eb92e2f5d5fd8658af01117) |
+| WASM Upload (negotiated settlement) | `81139993ec27149a5233fc9711b3194e0e1a028ff3a78fb00892bce9db9a6011` | [View ↗](https://stellar.expert/explorer/testnet/tx/81139993ec27149a5233fc9711b3194e0e1a028ff3a78fb00892bce9db9a6011) |
+| WASM Upgrade (negotiated settlement) | `598ea7f6a79607eb0e7fbcc1868de23cc10ed81bb2caada8653c8e38688e1645` | [View ↗](https://stellar.expert/explorer/testnet/tx/598ea7f6a79607eb0e7fbcc1868de23cc10ed81bb2caada8653c8e38688e1645) |
 
 ### WASM Hashes
 
 | Contract | WASM Hash |
 |---|---|
-| RentSafe Escrow | `8984492a8ba291fbb4ccced72dba508127e8e10136ef11755f1f79d38c4c216c` |
-| RentSafe Dispute | `c6c32aca57e5993f66ce1fc585a495457d3c273b54d58977d8e84d679051966a` |
+| RentSafe Escrow | `68432e5b5a235cbfe0efb2165e059b290cf4f19067e72def8eb9d9447764ab5f` |
+| RentSafe Dispute | `3ad562a9c361c694c9e9aa26eb555cde7f53b2821c553b790d7c07d818a7d595` |
 
 ---
 
