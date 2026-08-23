@@ -384,8 +384,21 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                           value={disputeEvidenceRef}
                           onChange={(event) => setDisputeEvidenceRef(event.target.value)}
                           className="w-full text-xs p-2.5 border border-[#c4c7c7] rounded-xl bg-white focus:outline-none min-h-24"
-                          placeholder="Paste a doc link, IPFS hash, or short evidence description"
+                          placeholder="Paste a Google Drive link, IPFS hash, document link, or short evidence description"
                         />
+                        <a
+                          href="https://drive.google.com/drive/my-drive"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-flex items-center gap-2 rounded-xl border border-[#c4c7c7] bg-[#f9f9f9] px-3 py-2 text-[#585f6c] transition-colors hover:bg-[#eeeeee]"
+                        >
+                          <span className="material-symbols-outlined text-base">add_to_drive</span>
+                          <span className="text-left">
+                            <span className="block text-[10px] font-bold">Add evidence via Google Drive</span>
+                            <span className="block text-[9px]">Upload there, then paste the share link above.</span>
+                          </span>
+                          <span className="material-symbols-outlined text-xs">open_in_new</span>
+                        </a>
                       </div>
                     </div>
                     <button
