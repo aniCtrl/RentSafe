@@ -163,14 +163,14 @@ sequenceDiagram
     Note over Escrow: State: AwaitingArbitration (8)
     Landlord->>Dispute: submit_evidence(dispute_id, evidence_ref)
     Tenant->>Dispute: submit_evidence(dispute_id, evidence_ref)
-    Note over Landlord,Tenant: Either participant may create the current proposal
+    Note over Landlord: Either Landlord or Tenant may create the current proposal
     Landlord->>Dispute: create_settlement_proposal(dispute_id, split, reason)
     Note over Dispute: Proposal status: Pending
     loop Additional negotiation rounds while funds remain locked
         Tenant->>Dispute: reject_settlement_proposal(...) or counter_settlement_proposal(...)
-        Note over Dispute: Rejected proposals remain history; counters replace the current proposal
+        Note over Dispute: Rejected proposals remain in history and counters replace the current proposal
         Landlord->>Dispute: create_settlement_proposal(dispute_id, split, reason)
-        Note over Escrow,Dispute: Creating, rejecting, or countering never releases funds
+        Note over Escrow: Creating, rejecting, or countering never releases funds
     end
     alt Mutual agreement
         Tenant->>Dispute: accept_settlement_proposal(dispute_id, proposal_id)
