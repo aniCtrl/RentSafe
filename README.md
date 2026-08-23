@@ -142,42 +142,20 @@ RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 During a dispute resolution, the Escrow and Dispute contracts coordinate actions to secure the funds and lock states until resolved.
 
 ```mermaid
-sequenceDiagram
-    actor Landlord
-    actor Tenant
-    participant Escrow as RentSafe Escrow Contract
-    participant Dispute as RentSafe Dispute Contract
-    Landlord->>Escrow: create_agreement(params)
-    Note over Escrow: State: Created (0)
-    Tenant->>Escrow: lock_deposit(agreement_id)
-    Note over Escrow: State: Funded (1)
-    Landlord->>Escrow: request_deduction(agreement_id, amount, reason)
-    Note over Escrow: State: DeductionRequested (4)
-    Tenant->>Escrow: respond_to_deduction(agreement_id, accept=false)
-    Note over Escrow: State: DeductionRejected (6)
-    Tenant->>Escrow: raise_dispute(agreement_id, reason, evidence)
-    Escrow->>Dispute: register_dispute(agreement_id, landlord, tenant)
-    Note over Dispute: Stores dispute record and initial evidence reference
-    Note over Escrow: State: Participant settlement pending
-    Landlord->>Dispute: submit_evidence(dispute_id, evidence_ref)
-    Tenant->>Dispute: submit_evidence(dispute_id, evidence_ref)
-    Note over Landlord: Either Landlord or Tenant may create the current proposal
-    Landlord->>Dispute: create_settlement_proposal(dispute_id, split, reason)
-    Note over Dispute: Proposal status: Pending
-    loop Additional negotiation rounds while funds remain locked
-        Tenant->>Dispute: reject_settlement_proposal(...) or counter_settlement_proposal(...)
-        Note over Dispute: Rejected proposals remain in history and counters replace the current proposal
-        Landlord->>Dispute: create_settlement_proposal(dispute_id, split, reason)
-        Note over Escrow: Creating, rejecting, or countering never releases funds
-    end
-    alt Mutual agreement
-        Tenant->>Dispute: accept_settlement_proposal(dispute_id, proposal_id)
-        Dispute->>Escrow: resolve_dispute_callback(agreement_id, landlord_amt, tenant_amt)
-        Note over Escrow: Validates payout sum equals locked deposit and transfers XLM
-        Note over Escrow: State: Settled (9)
-        Note over Dispute: State: Resolved (Resolved)
-        Note over Escrow: Workflow complete; no further participant action is required
-    end
+flowchart TD
+    A["Landlord creates agreement"] --> B["Tenant locks deposit"]
+    B --> C["Lease ends and landlord requests a deduction"]
+    C --> D["Tenant rejects deduction"]
+    D --> E["Escrow opens dispute in Dispute contract"]
+    E --> F["Landlord and tenant submit evidence"]
+    F --> G["Either participant creates a settlement proposal"]
+    G --> H{"Counterparty accepts proposal?"}
+    H -->|No| I["Reject or counter proposal - funds remain locked"]
+    I --> G
+    H -->|Yes| J["Dispute contract calls Escrow callback"]
+    J --> K["Escrow verifies payouts equal locked deposit"]
+    K --> L["Escrow transfers XLM to landlord and tenant"]
+    L --> M["Agreement workflow complete - no further participant action"]
 ```
 
 Settlement negotiation is participant-controlled: either landlord or tenant may create a proposal, while only the other participant may reject, counter, or accept the current proposal. Every proposal records its split, proposer, status, optional reason, and timestamps. Only acceptance by the counterparty calls the escrow settlement callback; all payout amounts must add up to the locked deposit. After the payout, the frontend marks the agreement workflow complete and shows that no further action is required.
