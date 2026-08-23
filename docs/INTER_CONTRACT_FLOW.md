@@ -1,71 +1,51 @@
 # RentSafe Inter-Contract Flow
 
-This document details the cross-contract interaction during a dispute lifecycle.
+This document describes the participant-driven dispute and settlement flow.
 
-## Dispute to Settlement Sequence
-
-The diagram below shows the sequence of transactions and inter-contract invocations when a dispute is raised by the Tenant and resolved by the Arbitrator.
+## Agreement to Settlement Sequence
 
 ```mermaid
 sequenceDiagram
-    autonumber
+    actor Landlord
     actor Tenant
-    actor Arbitrator
-    participant EscrowContract as Escrow Contract
-    participant DisputeContract as Dispute Contract
-    participant TokenContract as Stellar Asset Contract
+    participant Escrow as Escrow Registry Contract
+    participant Dispute as Dispute Registry Contract
+    participant Token as Stellar Asset Contract
 
-    Note over Tenant, EscrowContract: Pre-requisite: Escrow is Active
+    Landlord->>Escrow: create_agreement(...)
+    Tenant->>Escrow: lock_deposit(agreement_id)
+    Note over Escrow: Deposit is held by the escrow contract
+    Landlord->>Escrow: request_deduction(agreement_id, amount, reason)
+    Tenant->>Escrow: respond_to_deduction(agreement_id, false)
+    Escrow->>Dispute: register_dispute(agreement_id, landlord, tenant)
+    Escrow->>Dispute: submit_evidence(dispute_id, raised_by, evidence_ref)
+    Note over Escrow: Funds remain locked during the dispute
 
-    %% 1. Dispute invocation
-    Tenant->>EscrowContract: dispute(tenant_auth, tenant_address, evidence_hash)
-    Note over EscrowContract: Verify caller is Tenant<br/>Assert state is Active/SettlementRequested
-    Note over EscrowContract: Update Escrow state to Disputed
+    Landlord->>Dispute: submit_evidence(dispute_id, evidence_ref)
+    Tenant->>Dispute: submit_evidence(dispute_id, evidence_ref)
+    Landlord->>Dispute: create_settlement_proposal(dispute_id, split, reason)
+    Note over Dispute: One current proposal is pending a response
 
-    %% 2. Cross-contract call to Dispute
-    critical Call Dispute contract
-        EscrowContract->>DisputeContract: raise_dispute(disputer, evidence_hash)
-        Note over DisputeContract: Require EscrowContract auth (host-verified)
-        Note over DisputeContract: Update Dispute state to Active
-        Note over DisputeContract: Store evidence_hash in persistent storage
-        DisputeContract-->>EscrowContract: Dispute Raised Event
+    loop Negotiation rounds
+        Tenant->>Dispute: reject or counter the current proposal
+        Note over Dispute: Rejection keeps history and moves no funds
+        Tenant->>Dispute: counter_settlement_proposal(dispute_id, proposal_id, split, reason)
+        Note over Dispute: Countered proposal becomes superseded and a new proposal becomes current
+        Landlord->>Dispute: accept, reject, or counter the current proposal
     end
-    EscrowContract-->>Tenant: Escrow Disputed Event
 
-    %% 3. Arbitrator review and resolution
-    Note over Arbitrator, DisputeContract: Arbitrator reviews evidence off-chain (using evidence_hash)
-    Arbitrator->>DisputeContract: resolve(arbitrator_auth, landlord_share, tenant_share)
-    Note over DisputeContract: Verify caller is Arbitrator<br/>Assert state is Active
-    Note over DisputeContract: Update Dispute state to Resolved
-
-    %% 4. Callback to Escrow to execute payout
-    critical Callback to Escrow
-        DisputeContract->>EscrowContract: resolve_dispute(landlord_share, tenant_share)
-        Note over EscrowContract: Require DisputeContract auth (host-verified)
-        Note over EscrowContract: Update Escrow state to Resolved
-        
-        %% 5. Token Transfers
-        opt Landlord Share > 0
-            EscrowContract->>TokenContract: transfer(escrow, landlord, landlord_share)
-            TokenContract-->>EscrowContract: success
-        end
-        opt Tenant Share > 0
-            EscrowContract->>TokenContract: transfer(escrow, tenant, tenant_share)
-            TokenContract-->>EscrowContract: success
-        end
-        
-        Note over EscrowContract: Update Escrow state to Closed
-        EscrowContract-->>DisputeContract: Escrow Closed Event
-    end
-    DisputeContract-->>Arbitrator: Dispute Resolved Event
+    Tenant->>Dispute: accept_settlement_proposal(dispute_id, proposal_id)
+    Dispute->>Escrow: resolve_dispute_callback(agreement_id, landlord_amt, tenant_amt)
+    Note over Escrow: Verify payouts equal the locked deposit
+    Escrow->>Token: transfer(escrow, landlord, landlord_amt)
+    Escrow->>Token: transfer(escrow, tenant, tenant_amt)
+    Note over Escrow: Agreement is settled and the escrow balance is distributed
 ```
 
-## Security & Verification Mechanics
+## Important Guarantees
 
-1. **Authorization Propagation (Step 4)**: 
-   When the `Dispute` contract invokes the `Escrow` contract's `resolve_dispute` function:
-   - The `Escrow` contract calls `dispute_contract_address.require_auth()`.
-   - Because `Dispute` is the caller (the contract currently executing the invoke call), the Soroban host automatically validates this authorization, ensuring no third party can directly invoke `resolve_dispute`.
-
-2. **State Locks (Step 1)**:
-   Once the state is changed to `Disputed` in Step 1, all standard settlement actions in the `Escrow` contract (`request_settlement`, `accept_settlement`) are disabled. The funds are effectively locked until the linked `Dispute` contract returns a resolution.
+1. Only the landlord or tenant can create, respond to, or counter a proposal for their dispute.
+2. Proposal creation, rejection, and counter-offers never release escrow funds.
+3. A proposal can only be accepted while it is the current pending proposal and by the other participant.
+4. The final landlord and tenant payouts must add up exactly to the locked deposit.
+5. Only the accepted participant proposal triggers the Dispute-to-Escrow settlement callback.

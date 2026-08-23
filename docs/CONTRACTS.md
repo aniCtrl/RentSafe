@@ -1,137 +1,96 @@
 # RentSafe Smart Contract Specification
 
-This document details the storage layout, public interfaces, state machines, and event definitions for both the Escrow and Dispute contracts.
+RentSafe uses two Soroban contracts. The Escrow contract owns the deposit and agreement lifecycle. The Dispute contract owns dispute records, evidence references, and participant settlement proposals.
 
----
+## 1. Escrow Registry Contract
 
-## 1. Escrow Smart Contract
+### Responsibilities
 
-The Escrow contract handles agreement configuration, locks tenant deposits, and manages the rental lifecycle.
+- Create and store agreements under unique `u64` IDs.
+- Receive and hold the tenant's deposit.
+- Track lease, refund, deduction, dispute, and settled states.
+- Call the Dispute contract when a dispute is raised.
+- Execute the final payout after the Dispute contract reports an accepted outcome.
 
-### State Machine
+### Agreement Lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Created : initialize()
-    Created --> Funded : fund() [Tenant]
-    Funded --> Active : activate() [Landlord]
-    Active --> SettlementRequested : request_settlement() [Landlord/Tenant]
-    
-    SettlementRequested --> Closed : accept_settlement() [Counterparty]
-    SettlementRequested --> Disputed : dispute() [Landlord/Tenant]
-    Active --> Disputed : dispute() [Landlord/Tenant]
-    
-    Disputed --> Resolved : resolve_dispute() [Dispute Contract]
-    Resolved --> Closed : automatically transitions after payout
-    Closed --> [*]
+    [*] --> Created
+    Created --> Funded : lock_deposit() [Tenant]
+    Funded --> Active : first move-out action [Landlord]
+    Active --> RefundRequested : request_full_refund() [Landlord]
+    Active --> DeductionRequested : request_deduction() [Landlord]
+    DeductionRequested --> DeductionAccepted : respond_to_deduction(true) [Tenant]
+    DeductionRequested --> DeductionRejected : respond_to_deduction(false) [Tenant]
+    RefundRequested --> Settled : settle()
+    DeductionAccepted --> Settled : settle()
+    DeductionRejected --> Disputed : raise_dispute() [Landlord or Tenant]
+    Disputed --> ParticipantSettlement : evidence and negotiation
+    ParticipantSettlement --> Settled : accepted proposal callback
+    Settled --> [*]
 ```
 
-### Storage Layout
+### Main Methods
 
-The contract uses Soroban's `instance` storage for configuration and lifecycle parameters since they are queried frequently and updated atomically:
+- `create_agreement(...)`: Creates the agreement and records its parties and deposit terms.
+- `lock_deposit(agreement_id)`: Transfers the tenant deposit into Escrow.
+- `request_full_refund(agreement_id)`: Records a full tenant refund at lease end.
+- `request_deduction(agreement_id, amount, reason)`: Records the landlord's requested deduction.
+- `respond_to_deduction(agreement_id, accept)`: Lets the tenant accept or reject the deduction.
+- `raise_dispute(agreement_id, raised_by, reason, evidence_ref)`: Opens a dispute and links it to the Dispute contract.
+- `settle(agreement_id)`: Pays a recorded non-dispute resolution.
+- `resolve_dispute_callback(agreement_id, landlord_amount, tenant_amount)`: Accepts the participant-approved split from the linked Dispute contract and distributes the locked deposit.
 
-| Key | Storage Type | Data Type | Description |
-|---|---|---|---|
-| `Landlord` | Instance | `Address` | The landlord's Stellar address |
-| `Tenant` | Instance | `Address` | The tenant's Stellar address |
-| `Arbitrator` | Instance | `Address` | The designated arbitrator address |
-| `Token` | Instance | `Address` | The Stellar Asset Contract address for deposit funds |
-| `Amount` | Instance | `i128` | The rental deposit amount to be held |
-| `DisputeContract` | Instance | `Address` | The linked Dispute contract address |
-| `State` | Instance | `u32` (Enum) | The current Escrow state |
-| `ProposedLandlord` | Instance | `i128` | Settlement amount proposed for landlord (if in SettlementRequested) |
-| `ProposedTenant` | Instance | `i128` | Settlement amount proposed for tenant (if in SettlementRequested) |
-| `ProposedBy` | Instance | `Address` | The party who initiated the settlement proposal |
+## 2. Dispute Registry Contract
 
-### Public Methods
+### Responsibilities
 
-- **`initialize(env: Env, landlord: Address, tenant: Address, arbitrator: Address, token: Address, amount: i128)`**
-  - Configures contract. Can only be run once. Transitions state to `Created`.
-- **`set_dispute_contract(env: Env, dispute_contract: Address)`**
-  - Links the Dispute contract. Only callable by the `arbitrator`.
-- **`fund(env: Env)`**
-  - Requires `tenant` authorization. Transfers `amount` of `token` from tenant to the contract. Transitions state to `Funded`.
-- **`activate(env: Env)`**
-  - Requires `landlord` authorization. Transitions state to `Active`.
-- **`request_settlement(env: Env, landlord_share: i128, tenant_share: i128)`**
-  - Requires initiator authorization. Validates that `landlord_share + tenant_share == amount`. Records the proposal. Transitions state to `SettlementRequested`.
-- **`accept_settlement(env: Env)`**
-  - Requires counterparty authorization. Executes transfer of funds to both landlord and tenant. Transitions state to `Closed`.
-- **`dispute(env: Env, caller: Address, evidence_hash: BytesN<32>)`**
-  - Requires `caller` auth (landlord or tenant). Transitions state to `Disputed`. Invokes `raise_dispute(caller, evidence_hash)` on the linked Dispute contract.
-- **`resolve_dispute(env: Env, landlord_share: i128, tenant_share: i128)`**
-  - Requires authorization of `DisputeContract`. Transfers funds according to the split. Transitions state to `Resolved`, then `Closed`.
+- Store the dispute and its participants.
+- Store chronological evidence references.
+- Store versioned settlement proposals.
+- Keep exactly one current pending proposal available for response.
+- Call Escrow only after the other participant accepts the current proposal.
 
----
-
-## 2. Dispute Smart Contract
-
-The Dispute contract manages the official dispute case, stores evidence, and enforces the arbitrator's resolution.
-
-### State Machine
+### Dispute Lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Created : initialize()
-    Created --> Active : raise_dispute() [Escrow Contract]
-    Active --> Resolved : resolve() [Arbitrator]
+    [*] --> Open : register_dispute()
+    Open --> EvidenceSubmitted : submit_evidence()
+    EvidenceSubmitted --> EvidenceSubmitted : submit_evidence()
+    EvidenceSubmitted --> EvidenceSubmitted : create, reject, or counter proposal
+    EvidenceSubmitted --> Resolved : counterparty accepts proposal
     Resolved --> [*]
 ```
 
-### Storage Layout
+### Proposal States
 
-| Key | Storage Type | Data Type | Description |
-|---|---|---|---|
-| `EscrowContract` | Instance | `Address` | The linked Escrow contract address |
-| `Arbitrator` | Instance | `Address` | The arbitrator's Stellar address |
-| `State` | Instance | `u32` (Enum) | The current Dispute state |
-| `EvidenceHash` | Persistent | `BytesN<32>` | The SHA-256 hash of dispute evidence/metadata |
-| `Disputer` | Instance | `Address` | The party who initiated the dispute |
+| State | Meaning |
+|---|---|
+| `Pending` | The current proposal is waiting for the other participant's response. |
+| `Accepted` | The counterparty accepted it and settlement was triggered. |
+| `Rejected` | The other participant rejected it. Funds remain locked. |
+| `Superseded` | A counter-offer replaced it. It cannot be accepted later. |
 
-### Public Methods
+### Main Methods
 
-- **`initialize(env: Env, escrow_contract: Address, arbitrator: Address)`**
-  - Configures contract. Can only be run once. Transitions state to `Created`.
-- **`raise_dispute(env: Env, disputer: Address, evidence_hash: BytesN<32>)`**
-  - Requires `EscrowContract` authorization. Transitions state to `Active`. Stores the disputer and evidence hash in persistent storage.
-- **`resolve(env: Env, landlord_share: i128, tenant_share: i128)`**
-  - Requires `Arbitrator` authorization. Validates split matches the escrow amount (done by calling Escrow info or checking total). Calls `resolve_dispute(landlord_share, tenant_share)` on `EscrowContract`. Transitions state to `Resolved`.
+- `register_dispute(...)`: Creates the dispute record from the linked Escrow contract.
+- `submit_evidence(dispute_id, submitter, evidence_ref)`: Adds an evidence reference.
+- `create_settlement_proposal(dispute_id, landlord_amount, tenant_amount, reason)`: Creates a current participant proposal.
+- `accept_settlement_proposal(dispute_id, proposal_id)`: Accepts the current proposal and calls Escrow.
+- `reject_settlement_proposal(dispute_id, proposal_id)`: Rejects the current proposal without moving funds.
+- `counter_settlement_proposal(dispute_id, proposal_id, landlord_amount, tenant_amount, reason)`: Supersedes the current proposal and creates a new one.
 
----
+## 3. Settlement Invariants
 
-## 3. Event Schema
+1. Only the linked landlord or tenant can participate in a dispute's negotiation.
+2. A proposal's landlord and tenant amounts must be non-negative.
+3. The two final amounts must equal the original locked deposit exactly.
+4. Proposal creation, rejection, and counter-offers do not release funds.
+5. Only the current pending proposal can be responded to.
+6. The accepted proposal is recorded before the Escrow callback executes.
 
-Both contracts emit structured events on state transitions.
+## 4. Events
 
-### Escrow Events
-
-- **Initialize Event**
-  - Topics: `(Symbol::new(&env, "escrow"), Symbol::new(&env, "initialized"))`
-  - Data: `(landlord: Address, tenant: Address, arbitrator: Address, amount: i128)`
-- **Fund Event**
-  - Topics: `(Symbol::new(&env, "escrow"), Symbol::new(&env, "funded"))`
-  - Data: `(tenant: Address, amount: i128)`
-- **Activate Event**
-  - Topics: `(Symbol::new(&env, "escrow"), Symbol::new(&env, "activated"))`
-  - Data: `(landlord: Address)`
-- **Settlement Proposed Event**
-  - Topics: `(Symbol::new(&env, "escrow"), Symbol::new(&env, "settlement_proposed"))`
-  - Data: `(proposed_by: Address, landlord_share: i128, tenant_share: i128)`
-- **Settlement Accepted Event**
-  - Topics: `(Symbol::new(&env, "escrow"), Symbol::new(&env, "settlement_accepted"))`
-  - Data: `(landlord_share: i128, tenant_share: i128)`
-- **Disputed Event**
-  - Topics: `(Symbol::new(&env, "escrow"), Symbol::new(&env, "disputed"))`
-  - Data: `(caller: Address, evidence_hash: BytesN<32>)`
-- **Resolved Event**
-  - Topics: `(Symbol::new(&env, "escrow"), Symbol::new(&env, "resolved"))`
-  - Data: `(landlord_share: i128, tenant_share: i128)`
-
-### Dispute Events
-
-- **Dispute Raised Event**
-  - Topics: `(Symbol::new(&env, "dispute"), Symbol::new(&env, "raised"))`
-  - Data: `(escrow: Address, disputer: Address, evidence_hash: BytesN<32>)`
-- **Dispute Resolved Event**
-  - Topics: `(Symbol::new(&env, "dispute"), Symbol::new(&env, "resolved"))`
-  - Data: `(arbitrator: Address, landlord_share: i128, tenant_share: i128)`
+The contracts publish events for agreement creation, deposit locking, deductions, dispute registration, evidence submission, proposal creation, proposal responses, dispute resolution, and final settlement. The frontend reads these events for the Activity Feed and wallet-scoped notifications.

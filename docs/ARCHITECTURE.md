@@ -1,63 +1,37 @@
 # RentSafe Platform Architecture
 
-RentSafe is a decentralized rental deposit escrow platform. It ensures trustless deposit handling between tenants and landlords, utilizing an arbitrator to resolve disputes.
+RentSafe is a decentralized rental deposit escrow platform for landlords and tenants. The application reads agreement state from Soroban and lets both participants resolve disputed deductions through structured settlement negotiation.
 
-## System Topology Diagram
-
-The following diagram illustrates how actors and components interact with the RentSafe contracts on the Stellar network:
+## System Topology
 
 ```mermaid
-graph TD
-    %% Actors
-    Tenant[Tenant / User Agent]
-    Landlord[Landlord / User Agent]
-    Arbitrator[Arbitrator / Platform Admin]
-
-    %% Client Layer
-    subgraph Frontend / Client
-        Wallet[Stellar Wallet / Freighter]
-        dApp[RentSafe Web Application]
-    end
-
-    %% Network Layer
-    subgraph Stellar Network (Soroban)
-        RPC[Stellar RPC Node]
-        Escrow[Escrow Smart Contract]
-        Dispute[Dispute Smart Contract]
-        SAC[Stellar Asset Contract / Token]
-    end
-
-    %% Event Logging
-    subgraph Observability
-        Indexer[Event Indexer / Mercury / Stellar-Core]
-        DB[(Platform Database)]
-        Notify[Notification Service]
-    end
-
-    %% Interactions
-    Tenant -->|Signs Tx| Wallet
-    Landlord -->|Signs Tx| Wallet
-    Arbitrator -->|Signs Tx| Wallet
-    Wallet -->|Submits Tx| dApp
-    dApp -->|Queries/Submits| RPC
-    RPC -->|Executes Call| Escrow
-    RPC -->|Executes Call| Dispute
-
-    %% Smart Contract Inter-calls
-    Escrow <-->|Inter-contract Calls| Dispute
-    Escrow -->|Holds/Transfers Funds| SAC
-
-    %% Event consumption
-    RPC -.->|Emits Events| Indexer
-    Indexer -->|Syncs| DB
-    DB -->|Triggers| Notify
+flowchart TD
+    Tenant[Tenant] -->|Signs transactions| Wallet[Stellar wallet]
+    Landlord[Landlord] -->|Signs transactions| Wallet
+    Wallet --> App[RentSafe web application]
+    App -->|Queries and simulates| RPC[Stellar Soroban RPC]
+    RPC --> Ledger[Stellar Testnet ledger]
+    Ledger --> Escrow[Escrow registry contract]
+    Ledger --> Dispute[Dispute registry contract]
+    Escrow <-->|Registers disputes and settles payouts| Dispute
+    Escrow -->|Holds and transfers XLM| Token[Stellar asset contract]
+    App -->|Reads events| Activity[Activity feed and notifications]
+    Activity -->|Persists on device| Browser[Browser storage]
+    Tenant -.->|External file management| Drive[User-managed Google Drive]
+    Landlord -.->|External file management| Drive
+    Drive -.->|Pasted URL only| App
 ```
 
 ## Component Breakdown
 
-1. **User Agents (Tenant, Landlord, Arbitrator)**: Sign on-chain transactions via a Stellar-compatible wallet (e.g., Freighter) using Soroban's native cryptographic signatures.
-2. **Stellar RPC Node**: The gateway to the Stellar Network. Relays transactions, estimates fees, and provides contract state queries.
-3. **Escrow Smart Contract**: Deployed per lease agreement or acts as an individual agreement coordinator. Holds funds securely and implements the escrow state machine.
-4. **Dispute Smart Contract**: Handlers arbitration. Registered to a specific Escrow instance. When activated, it receives evidence hashes and lets the arbitrator decide payouts.
-5. **Stellar Asset Contract (SAC)**: Standard token contract (such as native XLM or stablecoins) implementing the token interface. Funds are held directly under the Escrow contract's balance.
-6. **Observability Indexer**: Scans Stellar ledgers for contract events published by Escrow and Dispute contracts to update off-chain states and user notifications.
+1. **Tenant and landlord wallets**: Sign agreement, deposit, evidence, proposal, and settlement transactions.
+2. **RentSafe web application**: Provides the UI, detects the connected participant role, builds transactions, and displays on-chain state.
+3. **Soroban RPC and Stellar ledger**: Simulate and submit transactions and expose contract state and events.
+4. **Escrow registry contract**: Stores agreements, holds the deposit, manages deductions, and executes the final payout.
+5. **Dispute registry contract**: Stores disputes, evidence references, settlement proposals, negotiation history, and the final participant-approved outcome.
+6. **Activity and notification state**: Uses live contract events plus device-local persistence. No private application database is required.
+7. **External evidence references**: Users may store files in Google Drive or another service. RentSafe stores only the pasted reference.
+
+## Settlement Principle
+
+During negotiation, the deposit remains inside the Escrow contract. Creating, rejecting, or countering a proposal does not move funds. The Dispute contract calls Escrow only after the counterparty accepts a current proposal, and Escrow verifies that the two payouts equal the locked deposit before transferring XLM.

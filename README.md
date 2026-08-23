@@ -57,9 +57,9 @@ Traditional rental deposit schemes are plagued by inefficiency, high transaction
 | High transaction & admin fees | Leveraging Stellar's high speed and extremely low fees for all agreement transitions. |
 | Opaque deposit custody | Funds are custodied transparently on-chain, visible to both parties at all times. |
 | Complex, slow refund payouts | Single-click release or refund triggers immediate on-chain settlement. |
-| Unresolved deposit disputes | On-chain dispute resolution with evidence submission, structured participant negotiation, and arbitrator arbitration. |
+| Unresolved deposit disputes | On-chain dispute resolution with evidence submission and structured landlord-tenant negotiation. |
 | Endless settlement back-and-forth | Versioned settlement proposals let either participant reject, counter, or accept a current split before funds move. |
-| Siloed/opaque dispute rulings | Arbitrator decisions are logged and executed programmatically on-chain. |
+| Siloed/opaque dispute rulings | Every evidence reference, proposal, response, and final split is logged on-chain. |
 
 ---
 
@@ -116,7 +116,7 @@ RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 
 ### 3.2 RentSafe Dispute Registry (`rentsafe-dispute`)
 
-**Purpose**: Manages dispute records linked to agreements, gathers chronological evidence references from participants, supports structured settlement negotiation, and authorizes arbitrators to execute resolution payouts.
+**Purpose**: Manages dispute records linked to agreements, gathers chronological evidence references from participants, and supports structured landlord-tenant settlement negotiation.
 
 **Address**: [`CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W`](https://stellar.expert/explorer/testnet/contract/CARBWEU5IF6Q4DJQHNJJOLFG57WXPWIIU5KUPMN2VRADO6GUSRAGKG3W)
 
@@ -130,10 +130,10 @@ RentSafe implements a multi-agreement registry model under unique `u64` IDs.
 | `SettlementProposal(u64)` | Persistent | `SettlementProposal` | Versioned landlord/tenant payout proposal with status, reason, and timestamps |
 | `SettlementProposalIds(u64)` | Persistent | `Vec<u64>` | Ordered proposal history for each dispute |
 | `CurrentSettlementProposal(u64)` | Persistent | `u64` | Points to the one pending proposal that can receive a response |
-| `Role(Address, Symbol)` | Persistent | `Symbol` | Role authorization mapping for platform admin and arbitrators |
+| `Role(Address, Symbol)` | Persistent | `Symbol` | Administrative authorization metadata |
 
 #### Public Functions
-`initialize` · `has_role` · `add_arbitrator` · `remove_arbitrator` · `add_admin` · `remove_admin` · `register_dispute` · `submit_evidence` · `propose_mutual_resolution` · `create_settlement_proposal` · `accept_settlement_proposal` · `reject_settlement_proposal` · `counter_settlement_proposal` · `resolve_dispute` · `get_config` · `get_dispute` · `get_dispute_by_agreement` · `get_mutual_resolution` · `get_settlement_proposal` · `get_current_settlement_proposal` · `get_settlement_proposals` · `get_dispute_ids` · `upgrade`
+`initialize` · `has_role` · `add_admin` · `remove_admin` · `register_dispute` · `submit_evidence` · `propose_mutual_resolution` · `create_settlement_proposal` · `accept_settlement_proposal` · `reject_settlement_proposal` · `counter_settlement_proposal` · `get_config` · `get_dispute` · `get_dispute_by_agreement` · `get_mutual_resolution` · `get_settlement_proposal` · `get_current_settlement_proposal` · `get_settlement_proposals` · `get_dispute_ids` · `upgrade`
 
 ---
 
@@ -147,8 +147,6 @@ sequenceDiagram
     actor Tenant
     participant Escrow as RentSafe Escrow Contract
     participant Dispute as RentSafe Dispute Contract
-    actor Arbitrator as Designated Arbitrator
-
     Landlord->>Escrow: create_agreement(params)
     Note over Escrow: State: Created (0)
     Tenant->>Escrow: lock_deposit(agreement_id)
@@ -160,7 +158,7 @@ sequenceDiagram
     Tenant->>Escrow: raise_dispute(agreement_id, reason, evidence)
     Escrow->>Dispute: register_dispute(agreement_id, landlord, tenant)
     Note over Dispute: Stores dispute record and initial evidence reference
-    Note over Escrow: State: AwaitingArbitration (8)
+    Note over Escrow: State: Participant settlement pending
     Landlord->>Dispute: submit_evidence(dispute_id, evidence_ref)
     Tenant->>Dispute: submit_evidence(dispute_id, evidence_ref)
     Note over Landlord: Either Landlord or Tenant may create the current proposal
@@ -178,17 +176,10 @@ sequenceDiagram
         Note over Escrow: Validates payout sum equals locked deposit and transfers XLM
         Note over Escrow: State: Settled (9)
         Note over Dispute: State: Resolved (Resolved)
-    else Arbitration fallback
-        Note over Arbitrator: RBAC-authorized fallback path
-        Arbitrator->>Dispute: resolve_dispute(dispute_id, landlord_amt, tenant_amt)
-        Dispute->>Escrow: resolve_dispute_callback(agreement_id, landlord_amt, tenant_amt)
-        Note over Escrow: Arbitrator resolution also validates and settles the locked deposit
-        Note over Escrow: State: Settled (9)
-        Note over Dispute: State: Resolved (Resolved)
     end
 ```
 
-Settlement negotiation is participant-controlled: either landlord or tenant may create a proposal, while only the other participant may reject, counter, or accept the current proposal. Every proposal records its split, proposer, status, optional reason, and timestamps. Only acceptance by the counterparty or an authorized arbitration resolution calls the escrow settlement callback; all payout amounts must add up to the locked deposit.
+Settlement negotiation is participant-controlled: either landlord or tenant may create a proposal, while only the other participant may reject, counter, or accept the current proposal. Every proposal records its split, proposer, status, optional reason, and timestamps. Only acceptance by the counterparty calls the escrow settlement callback; all payout amounts must add up to the locked deposit.
 
 ---
 
@@ -210,7 +201,6 @@ Settlement negotiation is participant-controlled: either landlord or tenant may 
 - **Agreement lifecycle**: Create an agreement, lock the tenant deposit, manage move-out refunds or deductions, and settle the escrow on-chain.
 - **Evidence-backed disputes**: Landlord and tenant can submit multiple evidence references. Evidence files remain in user-managed external services; RentSafe stores only references.
 - **Negotiated mutual settlement**: Either participant can create a payout proposal. The other participant can accept, reject, or counter it, with a complete on-chain proposal history.
-- **Arbitration fallback**: An authorized arbitrator can resolve an unresolved dispute when participant negotiation does not complete.
 - **Activity and notifications**: Live contract events, wallet-scoped notifications, transaction hashes, and saved device-local activity help participants track the lifecycle.
 
 ---
