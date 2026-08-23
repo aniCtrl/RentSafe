@@ -96,6 +96,9 @@ function getNextAction(
   hasDispute: boolean,
   dispute: Pick<DisputeRecord, 'landlord' | 'tenant'> & { currentSettlementProposal?: DisputeRecord['currentSettlementProposal'] },
 ) {
+  if (agreementStatus >= 9) {
+    return { nextActor: 'No action required', nextAction: role === 'Viewer' || role === 'Guest' ? 'Monitor the completed agreement' : 'Agreement complete' };
+  }
   if (agreementStatus === 0) return participantAction(role, 'Tenant', 'lock the deposit');
   if (agreementStatus === 1 || agreementStatus === 2) return participantAction(role, 'Landlord', 'choose the move-out outcome');
   if (agreementStatus === 3 || agreementStatus === 5 || hasOutcome) return participantAction(role, 'Landlord or tenant', 'settle the recorded funds');

@@ -43,6 +43,18 @@ describe('review improvements', () => {
     expect(timeline.steps[9].timestamp).toBe(60);
   });
 
+  it('does not show a settlement action after the agreement is closed', () => {
+    const timeline = getDisputeTimeline(
+      { status: 10, createdAt: 10, fundedAt: 20, deductionRequestedAt: 30, resolutionAt: 60 },
+      { status: 2, createdAt: 40, evidence: [], outcomeResolvedAt: 60, hasOutcome: true, landlord: 'G_LANDLORD', tenant: 'G_TENANT', currentSettlementProposal: null },
+      'Landlord',
+    );
+
+    expect(timeline.current.id).toBe('closed');
+    expect(timeline.nextActor).toBe('No action required');
+    expect(timeline.nextAction).toBe('Agreement complete');
+  });
+
   it('exposes the participant next action and evidence progress', () => {
     const timeline = getDisputeTimeline(
       { status: 8, createdAt: 10, fundedAt: 20, deductionRequestedAt: 30, resolutionAt: 0 },
