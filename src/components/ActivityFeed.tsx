@@ -3,15 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { useEventStream } from '@/hooks/useEventStream';
-import { useAppStore } from '@/store/useAppStore';
 import CopyHashButton from '@/components/CopyHashButton';
 
 export default function ActivityFeed({ agreementId, disputeId }: { agreementId?: string | number | null; disputeId?: string | number | null }) {
   const { events, loading, error } = useEventStream(agreementId, disputeId);
-  const notifications = useAppStore((state) => state.notifications);
-  const visibleNotifications = notifications
-    .filter((notification) => !agreementId || notification.agreementId === String(agreementId))
-    .slice(0, 8);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -121,22 +116,6 @@ export default function ActivityFeed({ agreementId, disputeId }: { agreementId?:
         </>
       )}
 
-      {visibleNotifications.length > 0 && (
-        <div className="mt-6 border-t border-[#e2e2e2] pt-4" aria-label="Wallet notification history">
-          <div className="mb-3 flex items-center justify-between">
-            <h5 className="text-[10px] font-bold uppercase tracking-wider text-[#585f6c]">Wallet notifications</h5>
-            <Link href="/activity-feed" className="text-[10px] font-bold text-[#276c9f] hover:underline">View all</Link>
-          </div>
-          <div className="space-y-2">
-            {visibleNotifications.map((notification) => (
-              <Link key={notification.id} href={notification.href ?? '/activity-feed'} className="flex items-start gap-2 rounded-xl bg-[#f3f3f3] p-3 hover:bg-[#eeeeee]">
-                <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${notification.severity === 'error' ? 'bg-[#ba1a1a]' : notification.severity === 'warning' ? 'bg-amber-500' : notification.severity === 'success' ? 'bg-emerald-500' : 'bg-sky-500'}`} />
-                <span className="min-w-0"><span className="block text-xs font-semibold text-black">{notification.title}</span><span className="block truncate text-[10px] text-[#585f6c]">{notification.message}</span></span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
