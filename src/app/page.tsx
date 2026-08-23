@@ -185,7 +185,7 @@ function LandingPage() {
               <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm mb-4">1</div>
               <h3 className="text-sm font-bold text-[#000000] mb-2">Create Agreement</h3>
               <p className="text-xs text-[#585f6c] leading-relaxed max-w-xs">
-                Landlord or Tenant initializes the agreement conditions and deposit details on RentSafe.
+                Landlord and tenant set the rental terms and security deposit on RentSafe.
               </p>
             </div>
             {/* Step 2 */}
@@ -193,15 +193,15 @@ function LandingPage() {
               <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm mb-4">2</div>
               <h3 className="text-sm font-bold text-[#000000] mb-2">Lock Deposit</h3>
               <p className="text-xs text-[#585f6c] leading-relaxed max-w-xs">
-                The Tenant locks the deposit securely into the shared Soroban escrow contract using Freighter or another Stellar wallet.
+                The tenant locks the deposit securely in the Soroban escrow contract using a Stellar wallet.
               </p>
             </div>
             {/* Step 3 */}
             <div className="flex flex-col items-center text-center">
               <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm mb-4">3</div>
-              <h3 className="text-sm font-bold text-[#000000] mb-2">Automated Settlement</h3>
+              <h3 className="text-sm font-bold text-[#000000] mb-2">Resolve &amp; Settle</h3>
               <p className="text-xs text-[#585f6c] leading-relaxed max-w-xs">
-                Funds are released automatically at lease end based on mutual sign-off, or resolved via decentralized arbitration if a dispute is raised.
+                At lease end, funds are settled through mutual agreement. If a deduction is disputed, both parties can negotiate a settlement or follow the dispute resolution process.
               </p>
             </div>
           </div>
