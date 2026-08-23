@@ -176,10 +176,11 @@ sequenceDiagram
         Note over Escrow: Validates payout sum equals locked deposit and transfers XLM
         Note over Escrow: State: Settled (9)
         Note over Dispute: State: Resolved (Resolved)
+        Note over Escrow: Workflow complete; no further participant action is required
     end
 ```
 
-Settlement negotiation is participant-controlled: either landlord or tenant may create a proposal, while only the other participant may reject, counter, or accept the current proposal. Every proposal records its split, proposer, status, optional reason, and timestamps. Only acceptance by the counterparty calls the escrow settlement callback; all payout amounts must add up to the locked deposit.
+Settlement negotiation is participant-controlled: either landlord or tenant may create a proposal, while only the other participant may reject, counter, or accept the current proposal. Every proposal records its split, proposer, status, optional reason, and timestamps. Only acceptance by the counterparty calls the escrow settlement callback; all payout amounts must add up to the locked deposit. After the payout, the frontend marks the agreement workflow complete and shows that no further action is required.
 
 ---
 
