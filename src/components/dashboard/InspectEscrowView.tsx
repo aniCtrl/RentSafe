@@ -66,10 +66,15 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
   const currentProposal = dispute?.currentSettlementProposal ?? null;
   const settlementHistory = dispute?.settlementProposals ?? [];
   const canResolveMutually = role === 'Landlord' || role === 'Tenant';
+  const [showCounterOffer, setShowCounterOffer] = React.useState(false);
   const proposalIsFromOtherParticipant = Boolean(
     currentProposal && address && currentProposal.proposer.toLowerCase() !== address.toLowerCase(),
   );
   const legacyPendingProposal = !currentProposal && settlementHistory.length === 0 && mutualProposal;
+
+  React.useEffect(() => {
+    setShowCounterOffer(false);
+  }, [dispute?.disputeId, currentProposal?.proposalId]);
 
   if (!agreementId) {
     return (
@@ -596,6 +601,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                                     setMutualTenantAmount(formatStroopsToXlm(currentProposal.tenantAmount));
                                     setSettlementReason('');
                                     setActionError(null);
+                                    setShowCounterOffer(true);
                                   }}
                                   className="btn-secondary rounded-xl border px-3 py-2.5 text-xs font-bold hover:opacity-90 disabled:opacity-50"
                                 >
@@ -608,7 +614,7 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                           </div>
                         )}
 
-                        {dispute.status !== 2 && ((!currentProposal && !legacyPendingProposal) || proposalIsFromOtherParticipant) && (
+                        {dispute.status !== 2 && ((!currentProposal && !legacyPendingProposal) || (proposalIsFromOtherParticipant && showCounterOffer)) && (
                           <div className="surface-muted space-y-3 rounded-xl border p-4">
                             <div>
                               <h5 className="text-xs font-bold text-primary">{currentProposal ? 'Make a counter-offer' : 'Make a settlement proposal'}</h5>
