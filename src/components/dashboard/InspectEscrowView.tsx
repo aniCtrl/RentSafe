@@ -394,10 +394,10 @@ export default function InspectEscrowView({ agreementId }: InspectEscrowViewProp
                         >
                           <span className="material-symbols-outlined text-base">add_to_drive</span>
                           <span className="text-left">
-                            <span className="block text-[10px] font-bold">Add evidence via Google Drive</span>
-                            <span className="block text-[9px]">Upload there, then paste the share link above.</span>
+                            <span className="block text-[10px] font-bold">Add evidence with Google Drive</span>
+                            <span className="block text-[9px]">Upload your photo/document to Google Drive, copy its share link, and paste it into the field above.</span>
                           </span>
-                          <span className="material-symbols-outlined text-xs">open_in_new</span>
+                          <span className="text-[10px] font-bold">Open Google Drive ↗</span>
                         </a>
                       </div>
                     </div>
