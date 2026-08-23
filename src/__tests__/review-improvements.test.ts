@@ -32,7 +32,7 @@ describe('review improvements', () => {
   it('marks settled mutual disputes as fully complete', () => {
     const timeline = getDisputeTimeline(
       { status: 9, createdAt: 10, fundedAt: 20, deductionRequestedAt: 30, resolutionAt: 60 },
-      { status: 2, createdAt: 40, evidence: [], outcomeResolvedAt: 60, hasOutcome: true },
+      { status: 2, createdAt: 40, evidence: [], outcomeResolvedAt: 60, hasOutcome: true, landlord: 'G_LANDLORD', tenant: 'G_TENANT', currentSettlementProposal: null },
       'Landlord',
     );
 
@@ -46,7 +46,7 @@ describe('review improvements', () => {
   it('exposes the role-aware next action and evidence progress', () => {
     const timeline = getDisputeTimeline(
       { status: 8, createdAt: 10, fundedAt: 20, deductionRequestedAt: 30, resolutionAt: 0 },
-      { status: 1, createdAt: 40, evidence: [{ submitter: 'GTEST', evidenceRef: 'ipfs://ref', submittedAt: 50 }], outcomeResolvedAt: 0 },
+      { status: 1, createdAt: 40, evidence: [{ submitter: 'GTEST', evidenceRef: 'ipfs://ref', submittedAt: 50 }], outcomeResolvedAt: 0, landlord: 'G_LANDLORD', tenant: 'G_TENANT', currentSettlementProposal: null },
       'Arbitrator',
     );
 
@@ -55,6 +55,41 @@ describe('review improvements', () => {
     expect(timeline.nextAction.toLowerCase()).toContain('review evidence');
     expect(timeline.steps[5].state).toBe('completed');
     expect(timeline.steps[5].timestamp).toBe(50);
+  });
+
+  it('guides landlord and tenant through participant settlement negotiation', () => {
+    const agreement = { status: 8, createdAt: 10, fundedAt: 20, deductionRequestedAt: 30, resolutionAt: 0 };
+    const currentSettlementProposal = {
+      proposalId: 1,
+      disputeId: 1,
+      proposer: 'G_LANDLORD',
+      landlordAmount: 300n,
+      tenantAmount: 700n,
+      reason: '',
+      proposedAt: 40,
+      respondedAt: 0,
+      status: 0,
+      statusLabel: 'Pending' as const,
+    };
+    const dispute = {
+      status: 1,
+      createdAt: 35,
+      evidence: [],
+      outcomeResolvedAt: 0,
+      landlord: 'G_LANDLORD',
+      tenant: 'G_TENANT',
+      currentSettlementProposal,
+    };
+
+    const landlordTimeline = getDisputeTimeline(agreement, dispute, 'Landlord');
+    const tenantTimeline = getDisputeTimeline(agreement, dispute, 'Tenant');
+
+    expect(landlordTimeline.nextActor).toBe('Tenant');
+    expect(landlordTimeline.nextAction).toContain('Waiting for tenant');
+    expect(tenantTimeline.nextActor).toBe('You');
+    expect(tenantTimeline.nextAction).toContain('accept, reject, or counter');
+    expect(landlordTimeline.nextAction.toLowerCase()).not.toContain('arbitrator');
+    expect(tenantTimeline.nextAction.toLowerCase()).not.toContain('arbitrator');
   });
 
   it('deduplicates transaction notifications and resets wallet-scoped records', () => {

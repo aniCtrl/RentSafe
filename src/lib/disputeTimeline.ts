@@ -7,7 +7,7 @@ export const DISPUTE_TIMELINE_STEPS = [
   { id: 'move-out', label: 'Move-out decision', description: 'The landlord can request a refund or propose a deduction.' },
   { id: 'dispute-raised', label: 'Dispute raised', description: 'A disputed deduction has been registered for review.' },
   { id: 'evidence-submitted', label: 'Evidence submitted', description: 'The parties can add evidence references to the dispute.' },
-  { id: 'awaiting-arbitration', label: 'Awaiting arbitration', description: 'An arbitrator must review the submitted evidence.' },
+  { id: 'awaiting-arbitration', label: 'Settlement negotiation', description: 'The participants can negotiate a settlement while funds remain locked.' },
   { id: 'resolution-recorded', label: 'Resolution recorded', description: 'The outcome and fund split are recorded on-chain.' },
   { id: 'settled', label: 'Funds settled', description: 'The escrow funds have been disbursed.' },
   { id: 'closed', label: 'Agreement closed', description: 'The agreement lifecycle is complete.' },
@@ -63,7 +63,39 @@ function participantAction(role: TimelineRole, participant: 'Landlord' | 'Tenant
   };
 }
 
-function getNextAction(agreementStatus: number, disputeStatus: number | undefined, role: TimelineRole, hasOutcome: boolean, hasDispute: boolean) {
+function negotiationAction(
+  role: TimelineRole,
+  dispute: Pick<DisputeRecord, 'landlord' | 'tenant'>,
+  currentProposal: DisputeRecord['currentSettlementProposal'],
+) {
+  if (!currentProposal) {
+    return role === 'Landlord' || role === 'Tenant'
+      ? { nextActor: 'You', nextAction: 'make a settlement proposal' }
+      : { nextActor: 'Landlord or tenant', nextAction: 'Monitor settlement negotiation' };
+  }
+
+  const proposer = currentProposal.proposer.toLowerCase();
+  const respondingParticipant = proposer === dispute.landlord.toLowerCase() ? 'Tenant' : 'Landlord';
+  if (role === respondingParticipant) {
+    return { nextActor: 'You', nextAction: 'accept, reject, or counter the proposal' };
+  }
+  if (role === (respondingParticipant === 'Tenant' ? 'Landlord' : 'Tenant')) {
+    return {
+      nextActor: respondingParticipant,
+      nextAction: `Waiting for ${respondingParticipant.toLowerCase()} to accept, reject, or counter the proposal`,
+    };
+  }
+  return { nextActor: 'Landlord or tenant', nextAction: 'Monitor settlement negotiation' };
+}
+
+function getNextAction(
+  agreementStatus: number,
+  disputeStatus: number | undefined,
+  role: TimelineRole,
+  hasOutcome: boolean,
+  hasDispute: boolean,
+  dispute: Pick<DisputeRecord, 'landlord' | 'tenant'> & { currentSettlementProposal?: DisputeRecord['currentSettlementProposal'] },
+) {
   if (agreementStatus === 0) return participantAction(role, 'Tenant', 'lock the deposit');
   if (agreementStatus === 1 || agreementStatus === 2) return participantAction(role, 'Landlord', 'choose the move-out outcome');
   if (agreementStatus === 3 || agreementStatus === 5 || hasOutcome) return participantAction(role, 'Landlord or tenant', 'settle the recorded funds');
@@ -72,26 +104,34 @@ function getNextAction(agreementStatus: number, disputeStatus: number | undefine
   if (agreementStatus === 7 || agreementStatus === 8) {
     if (!hasDispute) return { nextActor: 'Dispute contract', nextAction: 'Waiting for dispute details from RPC' };
     if (disputeStatus === 2) return participantAction(role, 'Landlord or tenant', 'settle the arbitration outcome');
+    if (disputeStatus === 1) {
+      if (role === 'Arbitrator') {
+        return { nextActor: 'You', nextAction: 'review evidence and resolve the dispute' };
+      }
+      return negotiationAction(role, dispute, dispute.currentSettlementProposal);
+    }
     if (disputeStatus === 0) {
       return role === 'Landlord' || role === 'Tenant'
         ? { nextActor: 'You', nextAction: 'submit evidence' }
         : { nextActor: 'Landlord or tenant', nextAction: 'Submit evidence' };
     }
-    return role === 'Arbitrator'
-      ? { nextActor: 'You', nextAction: 'review evidence and resolve the dispute' }
-      : { nextActor: 'Arbitrator', nextAction: role === 'Viewer' || role === 'Guest' ? 'Monitor the arbitration decision' : 'Waiting for the arbitrator to review evidence' };
+    return { nextActor: 'Landlord or tenant', nextAction: role === 'Viewer' || role === 'Guest' ? 'Monitor settlement negotiation' : 'Waiting for participant settlement negotiation' };
   }
   return { nextActor: 'No action required', nextAction: role === 'Viewer' || role === 'Guest' ? 'Monitor the agreement' : 'Agreement complete' };
 }
 
 export function getDisputeTimeline(
   agreement: Pick<AgreementRecord, 'status' | 'createdAt' | 'fundedAt' | 'deductionRequestedAt' | 'resolutionAt'>,
-  dispute?: (Pick<DisputeRecord, 'status' | 'createdAt' | 'evidence' | 'outcomeResolvedAt'> & { hasOutcome?: boolean }) | null,
+  dispute?: (Pick<DisputeRecord, 'status' | 'createdAt' | 'evidence' | 'outcomeResolvedAt' | 'landlord' | 'tenant' | 'currentSettlementProposal'> & { hasOutcome?: boolean }) | null,
   role: TimelineRole = 'Viewer',
 ): TimelineSummary {
   const hasOutcome = Boolean(dispute?.hasOutcome || dispute?.outcomeResolvedAt || agreement.resolutionAt);
   const currentStepIndex = getTimelineCurrentStep(agreement.status, dispute?.status, hasOutcome);
-  const action = getNextAction(agreement.status, dispute?.status, role, hasOutcome, Boolean(dispute));
+  const action = getNextAction(agreement.status, dispute?.status, role, hasOutcome, Boolean(dispute), dispute ?? {
+    landlord: '',
+    tenant: '',
+    currentSettlementProposal: null,
+  });
   const evidenceCount = dispute?.evidence.length ?? 0;
   const timestamps: Array<number | undefined> = [
     agreement.createdAt,
