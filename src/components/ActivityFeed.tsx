@@ -111,7 +111,7 @@ export default function ActivityFeed({
                   </div>
 
                   <div className="flex-grow min-w-0">
-                    <p className="font-bold text-slate-900 text-xs md:text-sm leading-relaxed">
+                    <p className="font-semibold text-slate-900 text-xs leading-snug">
                       {event.agreementId && !agreementId ? (
                         <Link className="hover:underline text-black" href={`/inspect-escrow/${event.agreementId}`}>
                           {event.message}
