@@ -40,7 +40,8 @@
   - [9.5 Active Usage Proof](#95-active-usage-proof)
 - [10. Contract Addresses & On-Chain Verification](#10-contract-addresses--on-chain-verification)
 - [11. Feedback & Responses](#11-feedback--responses)
-- [12. Resources & Links](#12-resources--links)
+- [12. Next Phase Improvements Based on User Feedback](#12-next-phase-improvements-based-on-user-feedback)
+- [13. Resources & Links](#13-resources--links)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -488,7 +489,24 @@ We appreciate your feedback and suggestions! Please use the following links to i
 
 ---
 
-## 12. Resources & Links
+## 12. Next Phase Improvements Based on User Feedback
+
+The feedback portal contains 16 user responses with an average product rating of **4.88/5**. The roadmap below turns the recurring feedback themes into delivered improvements and next-phase priorities. For privacy, personal email addresses and wallet addresses are not reproduced in this summary.
+
+| Feedback theme | Product response and next-phase plan | Status and GitHub commit evidence |
+|---|---|---|
+| Dark mode and light mode switch | Added persistent theme preferences, accessible color treatment, dark-mode palette balancing, and scrollbar styling. | **Completed** — [theme preferences and accessible UI](https://github.com/aniCtrl/RentSafe/commit/69bb39dca3fd92a9553a4007544060617801715b), [dark palette polish](https://github.com/aniCtrl/RentSafe/commit/6ece89b) |
+| Step-by-step dispute process | Added a guided dispute lifecycle timeline and clearer participant-driven settlement guidance so users can understand what happens at each stage. | **Completed** — [guided lifecycle timeline](https://github.com/aniCtrl/RentSafe/commit/83974f2163aa5881d1ed1d53e2bdf434fcf2ba87), [settlement negotiation guidance](https://github.com/aniCtrl/RentSafe/commit/53e3dc2) |
+| In-app notifications for important actions | Centralized wallet-scoped lifecycle notifications and added the activity feed experience so agreement and transaction events are easier to follow. | **Completed** — [wallet lifecycle alerts](https://github.com/aniCtrl/RentSafe/commit/0462be645b8648e42a9ef8bac4664ded9be83853), [activity feed component](https://github.com/aniCtrl/RentSafe/commit/bdbc87b790eaaa38769abb950353b4f69332be51) |
+| Overall UI/UX refinement | Continued improving responsive layouts, inspection screens, analytics, transaction surfaces, and accessible interaction states while preserving the clean workflow praised in the reviews. | **In progress** — [Activity Feed and Transaction Center layout](https://github.com/aniCtrl/RentSafe/commit/7ac96b9), [mobile inspection layout](https://github.com/aniCtrl/RentSafe/commit/8e9b939), [analytics and rent-payment UI](https://github.com/aniCtrl/RentSafe/commit/20106d5) |
+| Smoother transitions and subtle animations | Next phase: introduce lightweight transitions for page changes, cards, notifications, and transaction states. Motion will remain performance-conscious and respect `prefers-reduced-motion`. | **Planned** — implementation commit will be linked here when this work lands. |
+| Scale the product while keeping it simple | Next phase: use feedback trends and on-chain usage data to prioritize onboarding clarity, event pagination, notification relevance, mobile polish, and regression coverage as adoption grows. | **Planned from existing foundation** — [real-time on-chain analytics](https://github.com/aniCtrl/RentSafe/commit/36fd55db5515d7e036c05e9612f4492bda4e3568) |
+
+The positive reviews consistently describe RentSafe as clean, intuitive, smooth, and easy to use. The next phase will preserve those strengths while focusing development effort on motion polish, clearer onboarding, scalable activity visibility, and continued accessibility.
+
+---
+
+## 13. Resources & Links
 
 | Resource | Link |
 |---|---|
