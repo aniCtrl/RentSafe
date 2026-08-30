@@ -35,8 +35,9 @@
 - [9. Screenshots](#9-screenshots)
   - [9.1 Desktop View](#91-desktop-view)
   - [9.2 Mobile Responsive View](#92-mobile-responsive-view)
-  - [9.3 Test Verification](#93-test-verification)
-  - [9.4 CI/CD Pipeline](#94-cicd-pipeline)
+  - [9.3 CI/CD Workflow](#93-cicd-workflow)
+  - [9.4 Automated Testing](#94-automated-testing)
+  - [9.5 Active Usage Proof](#95-active-usage-proof)
 - [10. Contract Addresses & On-Chain Verification](#10-contract-addresses--on-chain-verification)
 - [11. Feedback & Responses](#11-feedback--responses)
 - [12. Resources & Links](#12-resources--links)
@@ -374,6 +375,63 @@ For a detailed step-by-step walkthrough, see **[DEPLOYMENT.md](file:///Users/bah
     <td width="50%" align="center">
       <p><b>Frontend Unit &amp; Integration Tests (Vitest)</b></p>
       <img src="screenshots/RentSafe_Screenshots/vitest-test.png" alt="Vitest Frontend Tests" />
+    </td>
+  </tr>
+</table>
+
+### 9.5 Active Usage Proof
+
+The following captures show the RentSafe Activity Feed populated with on-chain agreement activity from the Stellar Testnet. Each activity card exposes the agreement participants, ledger number, transaction reference, and a copy control for transaction details.
+
+<table border="0">
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 1</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-1.png" alt="Active usage proof showing the RentSafe activity feed, capture 1" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 2</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-2.png" alt="Active usage proof showing the RentSafe activity feed, capture 2" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 3</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-3.png" alt="Active usage proof showing the RentSafe activity feed, capture 3" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 4</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-4.png" alt="Active usage proof showing the RentSafe activity feed, capture 4" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 5</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-5.png" alt="Active usage proof showing the RentSafe activity feed, capture 5" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 6</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-6.png" alt="Active usage proof showing the RentSafe activity feed, capture 6" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 7</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-7.png" alt="Active usage proof showing the RentSafe activity feed, capture 7" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 8</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-8.png" alt="Active usage proof showing the RentSafe activity feed, capture 8" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 9</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-9.png" alt="Active usage proof showing the RentSafe activity feed, capture 9" />
+    </td>
+    <td width="50%" align="center">
+      <p><b>Activity Feed Capture 10</b></p>
+      <img src="screenshots/RentSafe_Screenshots/activity-feed-10.png" alt="Active usage proof showing the RentSafe activity feed, capture 10" />
     </td>
   </tr>
 </table>
